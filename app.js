@@ -40,6 +40,9 @@
     l: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>',
     r: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>',
     arrow: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
+    tree: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21v-7"/><path d="M10 17h4"/><path d="M12 14c-4.2 0-7-2.2-7-5.3C5 5.5 8.2 3 12 3s7 2.5 7 5.7c0 3.1-2.8 5.3-7 5.3z"/></svg>',
+    terr: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h18"/><path d="M5 20v-4h14v4"/><path d="M8 16v-3.5h8V16"/><circle cx="12" cy="7" r="2.6"/></svg>',
+    scroll: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h14M5 20h14"/><path d="M7 4v16M17 4v16"/><path d="M10.5 8v8M13.5 8v6"/></svg>',
     zoom: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5M10.5 8v5M8 10.5h5"/></svg>'
   };
 
@@ -128,6 +131,8 @@
   function fig(stem, opts) { opts = opts || {}; return '<figure>' + ph(stem, opts) + '<figcaption>' + esc(withShot(stem, capOf(stem, opts.cap))) + '</figcaption></figure>'; }
   const sec = (title, lede, body, id) => '<section class="sec wrap"' + (id ? ' id="' + id + '"' : '') + '><h2>' + esc(title) + '</h2>' + (lede ? '<p class="lede">' + esc(lede) + '</p>' : '') + '<div class="body">' + body + '</div></section>';
   const recTable = (rows, cls) => '<table class="rec' + (cls ? ' ' + cls : '') + '">' + rows.map((r) => '<tr><th>' + esc(r[0]) + '</th><td>' + esc(r[1]) + '</td></tr>').join('') + '</table>';
+  // 沉浸展项入口（同组成员制作的三维展项，深色独立页面）
+  const zxLink = (href, ic, t, d, cls) => '<a class="arlink' + (cls ? ' ' + cls : '') + '" href="' + href + '"><span class="ic dk">' + ic + '</span><span class="tx"><b>' + esc(t) + '</b><small>' + esc(d) + '</small></span><span class="chev">' + I.r + '</span></a>';
   const srcNote = (t) => t ? '<p class="src">' + esc(t) + '</p>' : '';
   const para = (t) => '<p class="txt">' + esc(t) + '</p>';
   const tags = (list, cls) => '<div class="tags' + (cls ? ' ' + cls : '') + '">' + list.map((t) => '<span>' + esc(t) + '</span>').join('') + '</div>';
@@ -291,6 +296,10 @@
         '<div class="map-head wrap"><h1>展厅导览</h1><p>八个展厅依申报书的章节排列。看完一个展厅，在厅尾盖一枚章。</p></div>' +
         '<div class="links wrap"><a href="#prelude"><b>序厅</b><span>遗产概要 · 范围 · 特点</span></a><a href="#passport"><b>观展护照</b><span>已集章 ' + n + ' / 8</span></a></div>' +
         '<a class="arlink wrap" href="ar.html"><span class="ic">' + I.cube + '</span><span class="tx"><b>AR 体验</b><small>扫描申报书里的三张图，图上立起遗产地沙盘、板枣糖丝和开甲演示</small></span><span class="chev">' + I.r + '</span></a>' +
+        '<div class="zxl wrap"><div class="zxh">沉浸展项</div>' +
+        zxLink('zx-kaijia.html', I.tree, '开甲（环剥）技艺', '整棵枣树三维演示七步 · 第六展厅') +
+        zxLink('zx-siji.html', I.terr, '枣园四季沙盘', '春夏秋冬看枣粮间作，点位配实景 · 第五展厅') +
+        zxLink('zx-jiaxun.html', I.scroll, '祖传家训', '镇馆之训「戒石」与六村家训 · 第七展厅') + '</div>' +
         '<div class="tiles wrap">' + tiles + '</div>' +
         '<div class="foot">' + esc(D.org) + '编制<br>资料来源：' + esc(D.source) + '及其附件<br>标注「' + SHOT + '」的影像为本项目 2026 年 10 月采集素材<br>讲解音频为语音合成</div>' +
         '</div>'
@@ -453,6 +462,7 @@
     const body = sec('古树之美', '', quote(H.quote, H.quoteSrc, 'big') + para(H.text)) +
       sec('景观图集', '申报书照片「生态景观」图 5—图 10，点击放大。', gal) +
       sec('农业景观保护图', '', mapBox(H.map, 'h5map')) +
+      sec('枣园四季', '枣粮间作的一年，在三维沙盘上看。', zxLink('zx-siji.html', I.terr, '枣园四季沙盘', '沉浸展项 · 拖动月份看春夏秋冬，点金色点位看实景照片', 'zxc')) +
       sec('360° 全景', '国家板枣公园及周边，' + SHOT + '，横向拖动浏览。', pano);
     return {
       html: hallShell(h, body),
@@ -503,7 +513,8 @@
     const layers = '<div class="layers">' + A.layers.map((l) => '<div class="ly"><b>' + esc(l.k) + '</b><p>' + esc(l.d) + '</p></div>').join('') + '</div>';
     const agro = para(A.text) + layers + '<h3 class="sub">常见的林下作物</h3>' + tags(A.crops) + '<h3 class="sub">放养家禽</h3>' + tags(A.birds);
     const graft = para(G.text) + '<div class="ringbox">' + ringSVG() + '</div>' + para(G.ring) + '<div class="grid2" style="margin-top:14px">' + G.imgs.map((x) => fig(x[0], { g: 'ring', cap: x[1] })).join('') + '</div>' +
-      '<div class="row"><a class="pill" href="ar.html#ring">' + I.cube + 'AR 开甲七步演示</a></div>';
+      '<div class="row"><a class="pill" href="ar.html#ring">' + I.cube + 'AR 开甲七步演示</a></div>' +
+      zxLink('zx-kaijia.html', I.tree, '开甲（环剥）技艺', '沉浸展项 · 整棵枣树三维演示七步，可拖动旋转', 'zxc');
     const stepper = '<div class="stepper"><div class="dots">' + S.map((p, i) => '<button data-i="' + i + '"><i>' + (i + 1) + '</i>' + esc(p.name) + '</button>').join('') + '</div><div class="stepcard"></div></div>';
     const C = H.calendar;
     const months = '<div class="months" aria-hidden="true">' + [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => '<span data-m="' + m + '">' + m + '</span>').join('') + '</div>';
@@ -579,6 +590,7 @@
       sec('历史人物', '点开人名查看事迹。', people) +
       sec('诗文', '申报书引用的两篇诗文。', poems) +
       sec('板儿与板枣的传说', '稷山民间广为流传，是宣传板枣起源的重要民间轶事。', legend) +
+      sec('祖传家训', '镇馆之训「戒石」，另列家风要义和六村家训。', zxLink('zx-jiaxun.html', I.scroll, '镇馆之训 · 戒石', '沉浸展项 · 戒石升起，展开清道光年间的陶梁乡约', 'zxc')) +
       sec('饮食文化', '', food) +
       sec('节庆与文化活动', '', events) +
       sec('后稷故里', '', para(H.houji)) +
