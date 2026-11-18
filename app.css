@@ -502,3 +502,29 @@ h3.sub { font-size: 15.5px; margin: 22px 0 8px; color: var(--ink); }
 .sheet .motto .orig { margin-top: 0; }
 .toast { position: fixed; left: 50%; bottom: calc(var(--bot) + 96px); transform: translateX(-50%); z-index: 70; background: rgba(43,37,31,.92); color: #fff; padding: 8px 16px; border-radius: 4px; font-size: 13.5px; max-width: 86vw; text-align: center; }
 .foot { text-align: center; font-size: 12px; color: var(--ink3); padding: 36px var(--gr) 0 var(--gl); line-height: 1.8; }
+
+/* 第四展厅：村档里的照片（横向滑动，宽度不超出折叠面板） */
+.acc.vill .vimgs { margin: 0 0 14px; padding: 2px 0 8px; scroll-padding-left: 0; scroll-padding-right: 0; }
+.acc.vill .vimgs figure { width: 62vw; max-width: 260px; margin: 0; }
+.acc.vill .vimgs figcaption { font-size: 12px; color: var(--ink2); line-height: 1.5; margin-top: 6px; }
+
+/* 第七展厅：戒石乡约 */
+.jx { margin: 4px 0 18px; padding: 18px 12px 14px; background: var(--paper); border: 1px solid var(--line); border-left: 4px solid var(--zao); }
+.jx-verse { display: flex; flex-direction: row-reverse; justify-content: center; gap: 26px; }
+.jx-verse span { writing-mode: vertical-rl; font-family: var(--serif); font-size: 30px; line-height: 1.2; letter-spacing: .12em; color: var(--ink); }
+.qie { display: inline-block; width: 1.2em; height: 1.04em; object-fit: contain; vertical-align: middle; }
+.jx-py { margin: 12px 0 0; text-align: center; font-size: 13px; color: var(--ink2); }
+.jx-py .qie { width: 1.6em; height: 1.4em; }
+.jx-rules { display: grid; gap: 10px; }
+.jr { padding: 12px 14px; background: var(--paper); border: 1px solid var(--line); border-left: 3px solid var(--loess); }
+.jr small { display: block; font-size: 12px; color: var(--loess); letter-spacing: .08em; }
+.jr b { display: block; font-family: var(--serif); font-size: 17px; margin-top: 2px; }
+.jr p { margin: 6px 0 0; font-size: 14px; line-height: 1.75; }
+.jr p.l { font-size: 13px; color: var(--ink2); }
+.jx-vill { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.jx-vill > div { padding: 10px 12px; border: 1px dashed #CFCCC1; background: transparent; }
+.jx-vill > div.has { border: 1px solid var(--line); border-left: 3px solid var(--zao); background: var(--paper); }
+.jx-vill small { display: block; font-size: 12px; color: var(--ink3); }
+.jx-vill b { display: block; font-family: var(--serif); font-size: 16px; }
+.jx-vill span { display: block; font-size: 12.5px; color: var(--ink2); margin-top: 2px; }
+@media (min-width: 700px) { .jx-rules { grid-template-columns: repeat(3, 1fr); } .jx-vill { grid-template-columns: repeat(3, 1fr); } }
