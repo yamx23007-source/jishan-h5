@@ -528,3 +528,40 @@ h3.sub { font-size: 15.5px; margin: 22px 0 8px; color: var(--ink); }
 .jx-vill b { display: block; font-family: var(--serif); font-size: 16px; }
 .jx-vill span { display: block; font-size: 12.5px; color: var(--ink2); margin-top: 2px; }
 @media (min-width: 700px) { .jx-rules { grid-template-columns: repeat(3, 1fr); } .jx-vill { grid-template-columns: repeat(3, 1fr); } }
+
+/* 展厅：导语为三年行动计划「核心保护要素清单」原文，按句编号；每句一节 */
+.cl-text { margin-top: 16px; font-size: 15.5px; line-height: 2; color: var(--ink); }
+.cl-text .cn:first-child { margin-left: 0; }
+.cn { display: inline-grid; place-items: center; width: 1.5em; height: 1.5em; margin: 0 4px 0 2px; border-radius: 50%; border: 1px solid var(--seal); color: var(--seal); font: 600 11.5px/1 var(--sans); vertical-align: .12em; }
+button.cn { position: relative; text-align: center; }
+button.cn::after { content: ''; position: absolute; inset: -10px -7px; }
+button.cn:active { background: var(--seal); color: #fff; }
+.cl-src { margin-top: 8px; font-size: 12px; color: var(--ink3); line-height: 1.6; }
+.sec.cl { scroll-margin-top: 8px; }
+.sec.cl > h2 { display: flex; align-items: baseline; gap: 8px; }
+.sec.cl > h2 .cn { flex: none; margin: 0; font-size: 12.5px; transform: translateY(-.15em); }
+.clq { margin: 12px 0 0; padding: 10px 14px; background: var(--paper); border-left: 3px solid var(--seal); font-size: 14px; line-height: 1.85; color: var(--ink2); }
+.sec.cl .body { margin-top: 22px; }
+.blk + .blk { margin-top: 34px; }
+.blk > h3.bt { font-size: 17px; padding-bottom: 6px; margin-bottom: 12px; border-bottom: 1px solid var(--line); }
+.blk > .bs { margin: -4px 0 12px; font-size: 13px; color: var(--ink2); line-height: 1.7; }
+.sec.cl .body > .gapnote { margin-top: 26px; }
+.sec.cl .body > .gapnote:first-child { margin-top: 0; }
+.tmap th { width: 5.4em; color: var(--ink); font-family: var(--serif); font-size: 14.5px; }
+.tmap td p + p { margin-top: 8px; }
+.tmap td small { display: block; font-size: 11.5px; color: var(--loess); letter-spacing: .04em; line-height: 1.5; }
+.tmap td .wait { color: var(--ink3); font-size: 13px; }
+.lks { display: grid; gap: 2px; margin-top: 10px; }
+.lk2 { display: inline-flex; align-items: center; gap: 2px; font-size: 14px; text-decoration: none; min-height: 38px; }
+.lk2 svg { width: 14px; height: 14px; flex: none; }
+.jx-rules.one { grid-template-columns: 1fr !important; }
+.links.three { grid-template-columns: repeat(3, 1fr); }
+.links.three a { min-width: 0; }
+.links.three a + a { padding-left: 12px; }
+.links.three a b { font-size: 15px; }
+
+/* 申报书资料（附录页） */
+.anx-idx { display: flex; flex-wrap: wrap; gap: 0 18px; margin-top: 18px; border-bottom: 1px solid var(--line); }
+.anx-g { margin-top: 52px; padding-top: 12px; border-top: 2px solid var(--ink); font-family: var(--serif); font-weight: 700; font-size: 19px; display: flex; align-items: baseline; gap: 10px; scroll-margin-top: calc(var(--top) + 64px); }
+.anx-g span { font-size: 14px; color: var(--loess); }
+.anx-g + .sec { padding-top: 22px; }
