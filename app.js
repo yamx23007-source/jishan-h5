@@ -1,23 +1,30 @@
-/* 稷山板枣 H5 数字馆 —— 页面与交互 */
+/* 山西稷山板枣生产系统 H5 数字展馆 —— 页面与交互 */
 (function () {
   'use strict';
-  const D = window.JS_DATA, M = window.JS_MEDIA || {}, S = window.JS_STATS || {};
+  const D = window.JS_DATA, M = window.JS_MEDIA || {};
   const HALLS = D.halls;
   const ON_PLATFORM = /^\/h5(\/|$)/.test(location.pathname);
+  const SHOT = '2026 年项目实拍';
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const src = (stem) => 'assets/img/JSBZ-' + stem + '.jpg';
+  const isSB = (stem) => /^SB-/.test(stem);
+  const src = (stem) => 'assets/img/' + (isSB(stem) ? stem : 'JSBZ-' + stem) + '.jpg';
   const meta = (stem) => M[stem] || {};
   // 视频文件在资源库平台上；公网版没有视频，播放按钮不显示
   const canVideo = (stem) => !!(ON_PLATFORM && stem && M[stem] && M[stem].video);
-  const capOf = (stem, over) => over || [meta(stem).cap, meta(stem).date].filter(Boolean).join(' · ');
+  const capOf = (stem, over) => over || (isSB(stem) ? '' : [meta(stem).cap, meta(stem).date].filter(Boolean).join(' · '));
+  // 申报书以外的影像，说明里一律注明「2026 年项目实拍」
+  const withShot = (stem, cap) => (isSB(stem) || /2026/.test(cap)) ? cap : (cap ? cap + ' · ' : '') + SHOT;
+  const hallById = (id) => HALLS.find((h) => h.id === id);
+  // 讲解音频带上版本号，换新录音后不会读到浏览器里的旧缓存
+  const VER = (() => { const sc = document.querySelector('script[src*="app.js"]'); const m = sc && /[?&]v=([^&]+)/.exec(sc.src); return m ? m[1] : ''; })();
 
   /* ---------- 本机存储（失败时只在内存里记） ---------- */
   const mem = {};
   const store = {
-    get(k, d) { try { const v = localStorage.getItem('jsbz-' + k); return v == null ? d : JSON.parse(v); } catch (e) { return k in mem ? mem[k] : d; } },
-    set(k, v) { mem[k] = v; try { localStorage.setItem('jsbz-' + k, JSON.stringify(v)); } catch (e) { /* 忽略 */ } }
+    get(k, d) { try { const v = localStorage.getItem('jsbz3-' + k); return v == null ? d : JSON.parse(v); } catch (e) { return k in mem ? mem[k] : d; } },
+    set(k, v) { mem[k] = v; try { localStorage.setItem('jsbz3-' + k, JSON.stringify(v)); } catch (e) { /* 忽略 */ } }
   };
   const state = { voice: store.get('voice', false), stamps: store.get('stamps', []), page: '' };
 
@@ -32,9 +39,7 @@
     l: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>',
     r: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>',
     arrow: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
-    lr: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l-6 6 6 6M15 6l6 6-6 6"/></svg>',
-    person: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8.5" r="4"/><path d="M4 21c1.2-4.2 4.3-6.3 8-6.3s6.8 2.1 8 6.3"/></svg>',
-    tree: '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M24 44V26M24 30l-7-6M24 27l8-7M24 22l-4-5"/><path d="M14 22c-5-1-7-6-4-10 2-3 6-3 8-2 1-4 6-6 10-4 3-3 9-1 9 4 4 0 6 5 3 8 1 4-3 7-7 5"/><path d="M16 44h16"/></svg>'
+    zoom: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5M10.5 8v5M8 10.5h5"/></svg>'
   };
 
   /* ---------- 板啾啾 ---------- */
@@ -68,7 +73,7 @@
       '</svg>';
   }
 
-  /* ---------- 印章与枣形节点 ---------- */
+  /* ---------- 印章 ---------- */
   function sealSVG(txt, color, uid) {
     const c = color || 'var(--seal)';
     const a = txt.charAt(0), b = txt.charAt(1);
@@ -78,13 +83,14 @@
       '<g fill="' + c + '" font-family="JSSerif, Songti SC, STSong, serif" font-weight="700" text-anchor="middle" filter="url(#rough' + uid + ')">' +
       '<text x="50" y="47" font-size="27">' + esc(a) + '</text><text x="50" y="77" font-size="27">' + esc(b) + '</text></g></svg>';
   }
+
   /* ---------- 讲解音频 ---------- */
   const audio = new Audio(); audio.preload = 'none';
   let curKey = null;
   function playKey(key) {
     if (!key) return;
     if (curKey === key && !audio.paused) { audio.pause(); return; }
-    curKey = key; audio.src = 'assets/audio/' + key + '.mp3';
+    curKey = key; audio.src = 'assets/audio/' + key + '.mp3' + (VER ? '?v=' + VER : '');
     audio.play().catch(() => { curKey = null; syncAudio(); });
     syncAudio();
   }
@@ -98,15 +104,13 @@
       const ic = el.querySelector('.ic'); if (ic) ic.innerHTML = on ? I.pause : I.play;
       const tx = el.querySelector('.tx'); if (tx) tx.textContent = on ? (el.dataset.on || '暂停') : (el.dataset.off || '收听');
     });
-    const page = pageNarr();
-    const g = $('#guide'); if (g) g.classList.toggle('talk', !!(playing && curKey === page));
+    const g = $('#guide'); if (g) g.classList.toggle('talk', !!(playing && curKey === pageNarr()));
   }
   ['play', 'pause', 'ended'].forEach((ev) => audio.addEventListener(ev, () => { if (ev === 'ended') curKey = null; syncAudio(); }));
   function pageNarr() {
     const p = state.page;
-    if (p === 'cover') return 'cover';
-    if (p === 'prelude') return 'prelude';
-    const h = HALLS.find((x) => x.id === p); return h ? h.narr : null;
+    if (p === 'cover' || p === 'prelude') return p;
+    const h = hallById(p); return h ? h.narr : null;
   }
   const audioBtn = (key, off, on) => '<button class="pill" data-a="' + key + '" data-off="' + (off || '收听') + '" data-on="' + (on || '暂停') + '"><span class="ic">' + I.play + '</span><span class="tx">' + (off || '收听') + '</span></button>';
 
@@ -115,36 +119,64 @@
     opts = Object.assign({}, opts || {});
     if (opts.video && !canVideo(opts.video)) opts.video = null;
     const m = meta(stem);
+    const cap = withShot(stem, capOf(stem, opts.cap));
     const v = opts.video ? '<span class="play">' + I.play + '视频</span>' : '';
-    const attrs = opts.video ? ' data-v="' + opts.video + '"' : ' data-z="' + stem + '" data-g="' + (opts.g || 'p') + '"' + (opts.cap ? ' data-cap="' + esc(opts.cap) + '"' : '');
-    return '<button class="ph ' + (opts.r || 'r43') + '"' + attrs + ' aria-label="' + esc(opts.cap || m.cap || '查看图片') + '"><img loading="lazy" src="' + src(stem) + '" alt="' + esc(opts.cap || m.cap || '') + '"' + (m.w ? ' width="' + m.w + '" height="' + m.h + '"' : '') + '>' + v + '</button>';
+    const attrs = opts.video ? ' data-v="' + opts.video + '"' : ' data-z="' + stem + '" data-g="' + (opts.g || 'p') + '" data-cap="' + esc(cap) + '"';
+    return '<button class="ph ' + (opts.r == null ? 'r43' : opts.r) + (opts.cls ? ' ' + opts.cls : '') + '"' + attrs + ' aria-label="' + esc(cap || '查看大图') + '"><img loading="lazy" src="' + src(stem) + '" alt="' + esc(cap) + '"' + (m.w ? ' width="' + m.w + '" height="' + m.h + '"' : '') + '>' + v + '</button>';
   }
-  function fig(stem, opts) { opts = opts || {}; return '<figure>' + ph(stem, opts) + '<figcaption>' + esc(capOf(stem, opts.cap)) + '</figcaption></figure>'; }
-  const stub = (text, r) => '<div class="ph stub ' + (r || 'r43') + '">' + esc(text) + '</div>';
-  const gap = (t, ask) => '<div class="gapnote' + (ask ? ' ask' : '') + '">' + esc(t) + '</div>';
-  const sec = (title, lede, body) => '<section class="sec wrap"><h2>' + esc(title) + '</h2>' + (lede ? '<p class="lede">' + esc(lede) + '</p>' : '') + '<div class="body">' + body + '</div></section>';
-  const recTable = (rows) => '<table class="rec">' + rows.map((r) => '<tr><th>' + esc(r[0]) + '</th><td' + (/^待/.test(r[1]) ? ' class="wait"' : '') + '>' + esc(r[1]) + '</td></tr>').join('') + '</table>';
-  const videoPill = (stem, label) => canVideo(stem) ? '<button class="pill" data-v="' + stem + '">' + I.play + (label || '看视频') + (M[stem].dur ? ' · ' + fmtDur(M[stem].dur) : '') + '</button>' : '';
-  function fmtDur(s) { s = Math.round(s); return s >= 60 ? Math.floor(s / 60) + ' 分 ' + (s % 60) + ' 秒' : s + ' 秒'; }
-
+  function fig(stem, opts) { opts = opts || {}; return '<figure>' + ph(stem, opts) + '<figcaption>' + esc(withShot(stem, capOf(stem, opts.cap))) + '</figcaption></figure>'; }
+  const sec = (title, lede, body, id) => '<section class="sec wrap"' + (id ? ' id="' + id + '"' : '') + '><h2>' + esc(title) + '</h2>' + (lede ? '<p class="lede">' + esc(lede) + '</p>' : '') + '<div class="body">' + body + '</div></section>';
+  const recTable = (rows, cls) => '<table class="rec' + (cls ? ' ' + cls : '') + '">' + rows.map((r) => '<tr><th>' + esc(r[0]) + '</th><td>' + esc(r[1]) + '</td></tr>').join('') + '</table>';
+  const srcNote = (t) => t ? '<p class="src">' + esc(t) + '</p>' : '';
+  const para = (t) => '<p class="txt">' + esc(t) + '</p>';
+  const tags = (list, cls) => '<div class="tags' + (cls ? ' ' + cls : '') + '">' + list.map((t) => '<span>' + esc(t) + '</span>').join('') + '</div>';
+  const quote = (q, s, cls) => '<blockquote class="qt' + (cls ? ' ' + cls : '') + '"><p>' + esc(q) + '</p>' + (s ? '<cite>' + esc(s) + '</cite>' : '') + '</blockquote>';
+  const nums = (list) => '<div class="vals">' + list.map((n) => '<div class="val"><span class="big">' + esc(n[0]) + '<small>' + esc(n[1]) + '</small></span><p>' + esc(n[2]) + '</p></div>').join('') + '</div>';
+  function bars(rows, opts) {
+    opts = opts || {};
+    const max = opts.max || Math.max.apply(null, rows.map((r) => r[1]));
+    return '<div class="bars">' + rows.map((r) => '<div class="brow"><span class="bl">' + esc(r[0]) + '</span><span class="bt"><i style="width:' + Math.max(1.5, r[1] / max * 100).toFixed(1) + '%"></i></span><span class="bv">' + esc(r[2] || r[1]) + '</span></div>').join('') + '</div>';
+  }
+  function legendList(list) { return '<ul class="lgd">' + list.map((l) => '<li><i style="background:' + l[0] + '"></i>' + esc(l[1]) + '</li>').join('') + '</ul>'; }
+  function mapBox(m, g) {
+    return '<figure class="mapbox">' + ph(m.img, { r: '', g: g || 'map', cap: m.t, cls: 'map' }) + '<span class="zm">' + I.zoom + '点击放大</span>' +
+      '<figcaption><b>' + esc(m.t) + '</b>' + (m.legend ? legendList(m.legend) : '') + (m.note ? '<span class="nt">' + esc(m.note) + '</span>' : '') + '</figcaption></figure>';
+  }
+  // 多张图件：上方切换，点击图片可左右翻看全部
+  function mapTabs(list, g) {
+    return '<div class="maptabs" data-mt><div class="chips scr" role="tablist">' + list.map((m, i) => '<button class="chip" role="tab" aria-pressed="' + (i === 0) + '" data-i="' + i + '">' + esc(m.tab || m.t) + '</button>').join('') + '</div>' +
+      list.map((m, i) => '<div class="mt"' + (i ? ' hidden' : '') + '>' + mapBox(m, g) + '</div>').join('') + '</div>';
+  }
+  function mountMapTabs(root) {
+    $$('[data-mt]', root).forEach((box) => {
+      const btns = $$('.chips .chip', box), panes = $$(':scope > .mt', box);
+      btns.forEach((b) => { b.onclick = () => { const i = +b.dataset.i; btns.forEach((x, j) => x.setAttribute('aria-pressed', j === i)); panes.forEach((p, j) => { p.hidden = j !== i; }); }; });
+    });
+  }
+  function scans(list, g, label) {
+    return '<div class="scans"><span class="sl">' + esc(label || '原件扫描') + '</span><div class="hscroll">' + list.map((s, i) => ph(s, { r: '', g: g, cap: (label || '原件扫描') + '（' + (i + 1) + '/' + list.length + '）', cls: 'scan' })).join('') + '</div></div>';
+  }
   function toast(t) {
     const el = document.createElement('div'); el.className = 'toast'; el.textContent = t; document.body.appendChild(el);
     setTimeout(() => el.remove(), 2600);
   }
+  // 一组可展开的条目（原生 details，键盘和读屏都能用）
+  const acc = (rows, cls) => '<div class="acc' + (cls ? ' ' + cls : '') + '">' + rows.map((r) => '<details><summary><b>' + esc(r[0]) + '</b>' + (r[2] ? '<em>' + esc(r[2]) + '</em>' : '') + '</summary><p>' + esc(r[1]) + '</p>' + (r[3] || '') + '</details>').join('') + '</div>';
+  const vrows = (rows) => '<div class="vrows">' + rows.map((r) => '<div class="vr"><b>' + esc(r[0]) + '</b><p>' + esc(r[1]) + '</p></div>').join('') + '</div>';
 
   /* ---------- 大图与视频 ---------- */
   function openLightbox(list, idx) {
     let i = idx;
     const el = document.createElement('div'); el.className = 'lb'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true');
-    const big = (it) => (ON_PLATFORM && meta(it.stem).hd) ? '/media/image/JSBZ-' + it.stem + '-2K.jpg' : src(it.stem);
+    const hd = (it) => ON_PLATFORM && !isSB(it.stem) && meta(it.stem).hd;
     function draw() {
       const it = list[i];
       el.innerHTML = '<div class="top"><span>' + (list.length > 1 ? (i + 1) + ' / ' + list.length : '') + '</span><button aria-label="关闭">' + I.x + '</button></div>' +
         '<div class="stage"><img src="' + src(it.stem) + '" alt=""></div>' +
-        '<div class="cap">' + esc(it.cap) + '<small>素材编号 JSBZ-' + esc(it.stem) + '</small></div>' +
+        '<div class="cap">' + esc(it.cap) + '<small>' + (isSB(it.stem) ? '图片出自申报书' : '素材编号 JSBZ-' + esc(it.stem)) + '</small></div>' +
         (list.length > 1 ? '<button class="nav p" aria-label="上一张">' + I.l + '</button><button class="nav n" aria-label="下一张">' + I.r + '</button>' : '');
       const im = $('.stage img', el);
-      if (ON_PLATFORM && meta(it.stem).hd) { const b = big(it), pre = new Image(); pre.onload = () => { im.src = b; }; pre.src = b; }
+      if (hd(it)) { const b = '/media/image/JSBZ-' + it.stem + '-2K.jpg', pre = new Image(); pre.onload = () => { im.src = b; }; pre.src = b; }
       $('.top button', el).onclick = close;
       $$('.nav', el).forEach((n) => { n.onclick = (e) => { e.stopPropagation(); go(n.classList.contains('n') ? 1 : -1); }; });
     }
@@ -160,37 +192,23 @@
   function openVideo(stem) {
     const m = meta(stem);
     const el = document.createElement('div'); el.className = 'lb'; el.setAttribute('role', 'dialog');
-    const cap = '<div class="cap">' + esc(capOf(stem)) + (m.dur ? '，' + fmtDur(m.dur) : '') + '<small>素材编号 JSBZ-' + esc(stem) + '</small></div>';
-    let body;
-    if (ON_PLATFORM && m.video) {
-      body = '<video controls playsinline webkit-playsinline preload="metadata" poster="' + src(stem) + '" src="/media/' + esc(m.video) + '"></video>';
-    } else {
-      body = '<div class="vnote"><img src="' + src(stem) + '" alt=""><p>该视频收在稷山板枣融媒体资源库平台，在平台内打开本数字馆即可直接播放。</p></div>';
-    }
-    el.innerHTML = '<div class="top"><span>视频</span><button aria-label="关闭">' + I.x + '</button></div><div class="stage">' + body + '</div>' + cap;
+    const body = '<video controls playsinline webkit-playsinline preload="metadata" poster="' + src(stem) + '" src="/media/' + esc(m.video) + '"></video>';
+    el.innerHTML = '<div class="top"><span>视频</span><button aria-label="关闭">' + I.x + '</button></div><div class="stage">' + body + '</div><div class="cap">' + esc(withShot(stem, capOf(stem))) + '<small>素材编号 JSBZ-' + esc(stem) + '</small></div>';
     const v = $('video', el);
-    $('.top button', el).onclick = () => { if (v) v.pause(); el.remove(); };
-    document.body.appendChild(el);
-    if (v) { stopAudio(); v.play().catch(() => {}); }
-  }
-  function openSheet(html) {
-    const el = document.createElement('div'); el.className = 'sheet';
-    el.innerHTML = '<div class="in" role="dialog" aria-modal="true"><div class="grab"></div><button class="x">关闭</button>' + html + '</div>';
-    el.addEventListener('click', (e) => { if (e.target === el || e.target.classList.contains('x')) el.remove(); });
-    document.body.appendChild(el); return el;
+    $('.top button', el).onclick = () => { v.pause(); el.remove(); };
+    document.body.appendChild(el); stopAudio(); v.play().catch(() => {});
   }
 
   /* 全局点击：大图、视频、音频 */
   document.addEventListener('click', (e) => {
     const z = e.target.closest('[data-z]');
     if (z) {
-      const g = z.dataset.g; const root = z.closest('.sheet') || document;
-      const all = $$('[data-z][data-g="' + g + '"]', root);
-      const list = all.map((n) => ({ stem: n.dataset.z, cap: n.dataset.cap || capOf(n.dataset.z) }));
-      openLightbox(list, Math.max(0, all.indexOf(z))); return;
+      const all = $$('[data-z][data-g="' + z.dataset.g + '"]');
+      openLightbox(all.map((n) => ({ stem: n.dataset.z, cap: n.dataset.cap || '' })), Math.max(0, all.indexOf(z))); return;
     }
     const v = e.target.closest('[data-v]'); if (v) { openVideo(v.dataset.v); return; }
-    const a = e.target.closest('[data-a]'); if (a) { playKey(a.dataset.a); }
+    const a = e.target.closest('[data-a]'); if (a) { playKey(a.dataset.a); return; }
+    const go = e.target.closest('[data-go]'); if (go) { go.classList.add('hl'); setTimeout(() => { location.hash = go.dataset.go; }, 140); }
   });
 
   /* ---------- 盖章 ---------- */
@@ -225,7 +243,8 @@
         '<div class="sub">' + esc(D.subtitle) + '</div>' +
         '<p class="lead">' + esc(D.lead) + '</p>' +
         '<div class="acts"><a class="btn-enter" href="#prelude">进入展馆' + I.arrow + '</a>' +
-        '<button class="switch" role="switch" aria-checked="' + state.voice + '"><span class="tg"></span>语音导览</button></div></div></section>',
+        '<button class="switch" role="switch" aria-checked="' + state.voice + '"><span class="tg"></span>语音导览</button></div>' +
+        '<p class="credit">封面为 2026 年项目航拍全景</p></div></section>',
       mount(root) {
         $('.switch', root).onclick = () => setVoice(!state.voice);
         // iOS 和微信里，声音必须在点击时先放出来；这里点「进入展馆」时直接开始播放序厅讲解
@@ -236,36 +255,26 @@
 
   /* ================= 序厅 ================= */
   function pPrelude() {
-    const P = D.prelude, sc = P.scope;
-    const towns = sc.towns.map((t) => '<div class="sc-town' + (t.pending ? ' pending' : '') + '"><h3>' + esc(t.name) + '</h3><ul>' +
-      t.villages.map((v) => '<li class="vill ' + v.state + '"><i></i><b>' + esc(v.name) + '</b>' + (v.note ? '<span>' + esc(v.note) + '</span>' : '') + '</li>').join('') + '</ul></div>').join('');
-    const scope = '<div class="scope"><div class="sc-top"><b>' + esc(sc.county) + '</b><span>' + esc(sc.park) + '</span></div>' + towns +
-      '<div class="legend"><span class="done"><i></i>影像已采集</span><span class="todo"><i></i>待采集</span><span class="pending"><i></i>待确认</span></div></div>' +
-      '<p class="src">' + esc(sc.foot) + '</p>';
-    const T = S.types || {};
-    const flow = '<ol class="flow">' + P.govern.map((g, i) => '<li><span class="n">' + (i + 1) + '</span><b>' + esc(g.t) + '</b><p>' + esc(g.d) + '</p></li>').join('') + '</ol>' +
-      '<div class="totals">' + [[S.records, '条著录'], [S.unique, '件去重后素材'], [T['照片'], '张照片'], [T['视频'], '段视频'], [T['航拍'], '段航拍'], [T['全景'], '张全景']]
-        .map((x) => '<span><b>' + (x[0] || 0) + '</b>' + x[1] + '</span>').join('') + '</div>';
-    const rows = HALLS.map((h, i) => {
-      const st = S.halls ? S.halls[i + 1] : null;
-      const by = st && st.total ? Object.keys(st.by).map((k) => k + ' ' + st.by[k]).join(' · ') : '家训原文、手抄本、碑刻资料征集中';
-      return '<button class="lrow' + (st && st.total ? '' : ' empty') + '" data-go="' + h.id + '"><span class="no">' + h.no + '</span><span class="nm"><b>' + esc(h.name) + '</b><small>' + esc(by) + '</small></span>' +
-        '<span class="n">' + (st && st.total ? st.total + '<small>件</small>' : '<small>征集中</small>') + '</span></button>';
-    }).join('');
-    const vals = P.values.map((v) => '<button class="val" data-go="' + v.to + '"><span class="big">' + esc(v.big) + '<small>' + esc(v.unit) + '</small></span><p>' + esc(v.d) + '</p></button>').join('');
+    const P = D.prelude, Z = P.zone;
+    const facts = recTable(P.facts) + srcNote(P.factsSrc) +
+      '<div class="doc">' + ph(P.cover, { r: '', g: 'doc', cap: '申报书封面' }) + '<div><b>申报书</b><p>' + esc(D.source.replace(/（.*）/, '')) + '</p><p class="small">正文五章：遗产地概况、遗产特征、遗产功能与重要性评估、问题挑战与机遇、保护与发展措施；另附图件与照片、技术规程、四季歌、修剪歌、物候历、管理办法和科研文献目录。</p></div></div>';
+    const zone = mapBox({ img: Z.img, t: Z.t, legend: Z.legend }, 'zone') + '<p class="txt" style="margin-top:12px">' + esc(Z.note) + '</p>' + tags(Z.villages, 'vill');
+    const pts = '<ol class="feats">' + P.points.map((p) => {
+      const h = hallById(p.to);
+      return '<li><button data-go="' + p.to + '"><span class="n">' + '一二三四五'.charAt(P.points.indexOf(p)) + '</span><b>' + esc(p.t) + '</b><p>' + esc(p.d) + '</p><span class="to">第' + h.no + '展厅 · ' + esc(h.name) + I.r + '</span></button></li>';
+    }).join('') + '</ol>';
+    const rows = HALLS.map((h) => '<button class="lrow" data-go="' + h.id + '"><span class="no">' + h.no + '</span><span class="nm"><b>' + esc(h.name) + '</b><small>' + esc(h.sub) + '</small></span><span class="chev">' + I.r + '</span></button>').join('');
     return {
       html: bar('序厅', ['cover', '封面']) + '<div class="page">' +
-        '<div class="hero short"><img src="' + src('CD01-SP-20261016-0001') + '" alt="板枣博物馆展厅中的稷山县地图"></div>' +
-        '<header class="hall-head wrap"><div class="no">序厅</div><h1>项目概况</h1><p class="pc">板枣博物馆展厅中的稷山县地图 · 2026-10-16</p></header>' +
-        '<div class="wrap"><p class="hall-intro">' + esc(D.lead) + '</p><div class="narr">' + audioBtn('prelude', '收听序厅讲解', '暂停讲解') + '</div></div>' +
-        sec('调查范围', '以国家板枣公园千年古树核心区为中心，覆盖 2 个核心乡镇、6 个行政村。', scope) +
-        sec('调查与数据治理', '分散的生态、文化、产业数据经标准化汇聚、融合治理，形成支撑各类数字化应用的数据底座。', flow) +
-        sec('资源总览', '按八大类保护要素统计，不含全景原片和重复副本。点击一行进入对应展厅。', '<div class="ledger">' + rows + '</div>' +
-          '<p class="src">另有历史渊源、博物馆展陈、文献档案和产业融合类素材 ' + (S.others || 0) + ' 件，收在资源库平台。</p>') +
-        sec('遗产价值', '', '<div class="vals">' + vals + '</div>') +
+        '<div class="hero short"><img src="' + src(P.hero) + '" alt="' + esc(P.heroCap) + '"></div>' +
+        '<header class="hall-head wrap"><div class="no">序厅</div><h1>遗产概要</h1><p class="pc">' + esc(P.heroCap) + '</p></header>' +
+        '<div class="wrap"><p class="hall-intro">' + esc(P.intro) + '</p><div class="narr">' + audioBtn('prelude', '收听序厅讲解', '暂停讲解') + '</div></div>' +
+        sec('基本信息', '', facts) +
+        sec('遗产地范围', '稷峰镇、化峪镇两个乡镇 68 个行政村，总面积 308 平方公里。', zone) +
+        sec('主要特点', '申报书概括的五个特点，点击进入相应展厅。', pts) +
+        sec('展厅索引', '八个展厅大体对应申报书的章节。', '<div class="ledger">' + rows + '</div>') +
         '<div class="wrap endcta"><a class="btn-main" href="#map">进入展厅导览' + I.arrow + '</a></div>' +
-        '</div>',
-      mount(root) { $$('[data-go]', root).forEach((b) => { b.onclick = () => { b.classList.add('hl'); setTimeout(() => { location.hash = b.dataset.go; }, 160); }; }); }
+        '</div>'
     };
   }
 
@@ -277,10 +286,10 @@
       '<span class="t"><small>第' + h.no + '展厅</small><b>' + esc(h.name) + '</b></span></a>').join('');
     return {
       html: bar('展厅导览', ['prelude', '序厅']) + '<div class="page">' +
-        '<div class="map-head wrap"><h1>展厅导览</h1><p>八大类保护要素，一类一个展厅。看完一个展厅，在厅尾盖一枚章。</p></div>' +
-        '<div class="links wrap"><a href="#prelude"><b>序厅</b><span>调查范围 · 资源总览</span></a><a href="#passport"><b>观展护照</b><span>已集章 ' + n + ' / 8</span></a></div>' +
+        '<div class="map-head wrap"><h1>展厅导览</h1><p>八个展厅依申报书的章节排列。看完一个展厅，在厅尾盖一枚章。</p></div>' +
+        '<div class="links wrap"><a href="#prelude"><b>序厅</b><span>遗产概要 · 范围 · 特点</span></a><a href="#passport"><b>观展护照</b><span>已集章 ' + n + ' / 8</span></a></div>' +
         '<div class="tiles wrap">' + tiles + '</div>' +
-        '<div class="foot">' + esc(D.org) + '编制<br>资料来源：《稷山国家板枣公园简介》《稷山板枣基本情况》、稷山板枣博物馆展陈资料及 2026 年 10 月项目采集素材<br>讲解音频为语音合成</div>' +
+        '<div class="foot">' + esc(D.org) + '编制<br>资料来源：' + esc(D.source) + '及其附件<br>标注「' + SHOT + '」的影像为本项目 2026 年 10 月采集素材<br>讲解音频为语音合成</div>' +
         '</div>'
     };
   }
@@ -311,167 +320,139 @@
       toast(state.stamps.length === 8 ? '八枚印章已集齐，去生成观展护照吧！' : '盖章成功，已集 ' + state.stamps.length + ' / 8');
     };
   }
-
-  /* ---------- 第一展厅 ---------- */
-  function seasonSVG() {
-    // 一根「之」字形的枣枝：主枝 + 三条枣吊，叶互生
-    const twigs = [
-      [[150, 196], [168, 160], [156, 128], [176, 96], [166, 66]],
-      [[236, 140], [262, 118], [256, 88], [282, 70], [278, 44]],
-      [[96, 228], [80, 196], [100, 170], [86, 140]],
-      [[318, 92], [346, 96], [360, 72]]
-    ];
-    let lv = '', bd = '', fl = '', fg = '', fr = '', tw = '';
-    twigs.forEach((t, ti) => {
-      tw += '<polyline points="' + t.map((p) => p.join(',')).join(' ') + '" fill="none" stroke="#6E4A2E" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round"/>';
-      for (let s = 1; s < t.length; s++) {
-        const a = t[s - 1], b = t[s], ang = Math.atan2(b[1] - a[1], b[0] - a[0]) * 180 / Math.PI;
-        const side = (s + ti) % 2 ? 1 : -1;
-        // 每段三片互生叶：外层 g 负责位置和朝向，内层 path 负责季节变化
-        [[1, side, 30], [0.5, -side, 26], [0.2, side, 20]].forEach((q) => {
-          const x = a[0] + (b[0] - a[0]) * q[0], y = a[1] + (b[1] - a[1]) * q[0], rot = ang + q[1] * 58;
-          lv += '<g transform="translate(' + x.toFixed(1) + ' ' + y.toFixed(1) + ') rotate(' + rot.toFixed(1) + ')"><path class="lf" d="M0 0 q ' + (q[2] * .45) + ' -' + (q[2] * .32) + ' ' + q[2] + ' 0 q -' + (q[2] * .55) + ' ' + (q[2] * .32) + ' -' + q[2] + ' 0z"/></g>';
-        });
-        const x = b[0], y = b[1];
-        bd += '<circle class="bd" cx="' + x + '" cy="' + y + '" r="3.6" fill="#8DB85A"/><circle class="bd" cx="' + ((a[0] + b[0]) / 2) + '" cy="' + ((a[1] + b[1]) / 2) + '" r="2.8" fill="#9CC468"/>';
-        [[-5, 7], [3, 9], [-1, 14]].forEach((o, k) => {
-          fl += '<g transform="translate(' + (x + side * o[0]) + ' ' + (y + o[1]) + ') scale(' + (1.25 - k * .15) + ')"><g class="fl"><path d="M0-5L1.5-1.6 5-1.5 2.3 1 3.1 4.6 0 2.6-3.1 4.6-2.3 1-5-1.5-1.5-1.6Z" fill="#DCDA6A" stroke="#ABA53C" stroke-width=".6"/><circle r="1.5" fill="#97892A"/></g></g>';
-        });
-        if (s % 2 === 0 || s === t.length - 1) {
-          const fx = x + side * 6, fy = y + 6;
-          fg += '<g transform="translate(' + fx + ' ' + fy + ')"><g class="fg"><path d="M0 0v5" stroke="#6E4A2E" stroke-width="1.3"/><ellipse cx="0" cy="12" rx="6.5" ry="8" fill="#A7C56B" stroke="#7F9C47" stroke-width=".8"/></g></g>';
-          fr += '<g transform="translate(' + fx + ' ' + fy + ')"><g class="fr"><path d="M0 0v5" stroke="#6E4A2E" stroke-width="1.4"/><path d="M-9 10c0-4 4.2-5.2 9-5.2s9 1.2 9 5.2c0 9.5-4.2 15.8-9 15.8s-9-6.3-9-15.8z" fill="url(#zr)"/><ellipse cx="-4" cy="12" rx="2.1" ry="3.6" fill="#fff" opacity=".35"/></g></g>';
-        }
-      }
+  // 一组按钮切换一组面板（季节、类型、措施等）
+  function mountSwitch(root, sel, onShow) {
+    $$(sel, root).forEach((box) => {
+      const btns = $$('[data-sw]', box), panes = $$('[data-pane]', box);
+      const show = (i) => { btns.forEach((b, j) => { b.setAttribute('aria-pressed', j === i); b.setAttribute('aria-selected', j === i); }); panes.forEach((p, j) => { p.hidden = j !== i; }); if (onShow) onShow(box, i); };
+      btns.forEach((b, j) => { b.onclick = () => show(j); });
     });
-    const fall = '<g class="fall"><path d="M120 278 q8-6 18 0 q-10 6-18 0z" fill="#B59A55"/><path d="M200 284 q8-5 17 1 q-9 5-17-1z" fill="#A88A44" /><path d="M262 276 q8-6 18 0 q-10 6-18 0z" fill="#BCA45E"/><path d="M58 286 q7-5 15 0 q-8 5-15 0z" fill="#A88A44"/></g>';
-    return '<svg class="sv" data-st="0" viewBox="0 0 400 300" aria-label="枣枝物候示意图"><defs><linearGradient id="zr" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#C2413A"/><stop offset=".6" stop-color="#8E1F25"/><stop offset="1" stop-color="#5E1217"/></linearGradient></defs>' +
-      '<path d="M0 288 Q 200 276 400 290" stroke="var(--line)" stroke-width="1.5" fill="none"/>' + fall +
-      '<path d="M18 292 C 70 262, 120 222, 150 196 S 214 152, 236 140 S 300 100, 318 92 S 360 70, 392 52" fill="none" stroke="#5B3A22" stroke-width="9" stroke-linecap="round"/>' +
-      '<path d="M18 292 C 70 262, 120 222, 150 196" fill="none" stroke="#7B5536" stroke-width="3" stroke-linecap="round" opacity=".5" transform="translate(-2 -3)"/>' +
-      tw + '<g>' + lv + '</g>' + bd + fl + fg + fr + '</svg>';
   }
+
+  /* ---------- 第一展厅 遗产地概况 ---------- */
   function pHall1(h) {
-    const ss = D.seasons;
-    const season = '<div class="season" data-st="0"><div class="stage">' + seasonSVG() + '<span class="tag">示意图</span><button class="auto" aria-pressed="false">播放四季</button></div>' +
-      '<div class="tabs" role="tablist">' + ss.map((s, i) => '<button role="tab" aria-selected="' + (i === 0) + '" data-i="' + i + '">' + esc(s.k) + '</button>').join('') + '</div>' +
-      '<div class="desc"><b></b><em></em><p></p></div></div><p class="src">四季实拍影像待补拍；现有古树影像摄于 2026 年 10 月中旬采收后。</p>';
-    const fruit = recTable(D.fruit) + '<div class="grid2" style="margin-top:14px">' + fig('CJ07-TP-20261017-0007', { g: 'h1f' }) + fig('ZZ01-SP-20261018-0001', { video: 'ZZ01-SP-20261018-0001', cap: '古枣树树冠、树干与枝杈形态 · 视频' }) + '</div>' +
-      '<p class="src">来源：《稷山板枣基本情况》；项目采集素材</p>';
-    const spots = ['全部'].concat(Array.from(new Set(D.trees.map((t) => t.spot))));
-    const treeCards = D.trees.map((t) => '<button class="tree" data-tree="' + t.id + '" data-spot="' + esc(t.spot) + '">' +
-      (t.img ? '<span class="ph"><img loading="lazy" src="' + src(t.img) + '" alt=""></span>' : '<span class="ph noimg">' + I.tree + '<span>单株影像待补拍</span></span>') +
-      '<b>' + esc(t.name) + (t.rows ? '<span class="badge">' + (t.id === 't301' ? '挂牌' : '文献') + '</span>' : '') + '</b><span>' + esc(t.spot) + (t.date ? ' · ' + t.date : '') + '</span></button>').join('');
-    const trees = '<div class="chips" role="group" aria-label="按点位筛选">' + spots.map((s, i) => '<button class="chip" aria-pressed="' + (i === 0) + '" data-f="' + esc(s) + '">' + esc(s) + '</button>').join('') + '</div>' +
-      '<div class="trees">' + treeCards + '</div><p class="src">按行政村归档：待古树挂牌编号与村界核对后开放筛选。</p>';
-    const body = sec('古枣树四季', '一键切换发芽、开花、坐果、成熟、落叶休眠。', season) +
-      sec('板枣种质特征', '稷山板枣以「皮薄、肉厚、核小」著称。', fruit) +
-      sec('古枣树档案', '一树一档：编号、树龄、位置、所属村落、实拍、生长现状、种质特征、调查记录。', trees) +
-      sec('枣林伴生动植物', '', gap('枣林伴生植物、鸟类和昆虫资源图集待调查补充。'));
-    return {
-      html: hallShell(h, body),
-      mount(root) {
-        const box = $('.season', root), sv = $('svg.sv', box), tabs = $$('.tabs button', box), auto = $('.auto', box);
-        let timer = null;
-        const set = (i) => {
-          box.dataset.st = i; sv.dataset.st = i;
-          tabs.forEach((t, j) => t.setAttribute('aria-selected', j === i));
-          $('.desc b', box).textContent = ss[i].k; $('.desc em', box).textContent = ss[i].when; $('.desc p', box).textContent = ss[i].d;
-        };
-        tabs.forEach((t) => { t.onclick = () => { stopAuto(); set(+t.dataset.i); }; });
-        const stopAuto = () => { clearInterval(timer); timer = null; auto.textContent = '播放四季'; auto.setAttribute('aria-pressed', 'false'); };
-        auto.onclick = () => {
-          if (timer) { stopAuto(); return; }
-          auto.textContent = '停止'; auto.setAttribute('aria-pressed', 'true');
-          let i = +box.dataset.st; timer = setInterval(() => { i = (i + 1) % ss.length; set(i); }, 2200);
-        };
-        set(0);
-        $$('.chip', root).forEach((c) => {
-          c.onclick = () => {
-            $$('.chip', root).forEach((x) => x.setAttribute('aria-pressed', x === c));
-            const f = c.dataset.f; $$('.tree', root).forEach((t) => { t.hidden = !(f === '全部' || t.dataset.spot === f); });
-          };
-        });
-        $$('.tree', root).forEach((b) => {
-          b.onclick = () => {
-            const t = D.trees.find((x) => x.id === b.dataset.tree);
-            const rows = t.rows || [['编号', '待核'], ['树龄', '待测定'], ['位置', '国家板枣公园·' + t.spot], ['所属村落', '待核'],
-              ['生长现状', meta(t.img).cap || '待调查'], ['种质特征', '稷山板枣'], ['调查记录', t.date + ' 拍摄，素材编号 JSBZ-' + t.img]];
-            openSheet('<h3>' + esc(t.name) + '</h3>' + (t.img ? ph(t.img, { r: 'r34', g: 'tree', cap: capOf(t.img) }) : stub('单株影像待补拍', 'r169')) + recTable(rows));
-          };
-        });
-      }
-    };
+    const H = D.hall1;
+    const tot = H.terrain.reduce((a, t) => a + t[1], 0);
+    const stack = '<div class="stack" role="img" aria-label="地貌构成：' + H.terrain.map((t) => t[0] + t[2] + '%').join('，') + '">' + H.terrain.map((t, i) => '<span class="s' + i + '" style="flex:' + t[1] + '"><b>' + esc(t[0]) + '</b>' + t[2] + '%</span>').join('') + '</div>' +
+      '<p class="small" style="margin-top:6px">' + H.terrain.map((t) => t[0] + ' ' + t[1] + ' 平方公里').join('，') + '，合计 ' + tot + ' 平方公里。</p>';
+    const grades = '<div class="gtab">' + H.soil.grades.map((g) => '<span><small>' + esc(g[0]) + '</small>' + esc(g[1]) + '</span>').join('') + '</div>';
+    const body =
+      sec('区位与地形', '逐级查看遗产地的位置。点击图片放大，可左右翻看。', mapTabs(H.maps, 'h1map') + srcNote(H.mapNote)) +
+      sec('地理概况', '', recTable(H.geo) + '<h3 class="sub">地貌构成</h3>' + stack) +
+      sec('土壤条件', '', para(H.soil.text) + '<h3 class="sub">耕地土壤养分等级</h3>' + grades + srcNote(H.soil.src)) +
+      sec('气候特点', '', para(H.climate.text) + '<div style="margin-top:14px">' + nums(H.climate.nums) + '</div>' + recTable(H.climate.rows, 'mt')) +
+      sec('社会经济状况', '', para(H.econ.text) + recTable(H.econ.rows, 'mt') + srcNote(H.econ.src));
+    return { html: hallShell(h, body), mount(root) { mountMapTabs(root); } };
   }
 
-  /* ---------- 第二展厅 ---------- */
+  /* ---------- 第二展厅 起源与演变 ---------- */
   function pHall2(h) {
-    const P = D.process;
-    const stepper = '<div class="stepper"><div class="dots">' + P.map((p, i) => '<button data-i="' + i + '" class="' + (p.img ? '' : 'miss') + '"><i>' + (i + 1) + '</i>' + esc(p.name.replace('与病虫害防控', '').replace('与整地', '')) + '</button>').join('') + '</div><div class="stepcard"></div></div>' +
-      '<p class="src">虚线圆点表示该环节影像待补采。</p>';
-    const well = '<div class="wsteps">' + D.well.map((w, i) => '<div class="wstep">' + ph(w.img, { g: 'well', cap: w.t }) + '<div><b><i>' + (i + 1) + '</i>' + esc(w.t) + '</b><p>' + esc(w.d) + '</p></div></div>').join('') + '</div>' +
-      '<div style="margin-top:12px">' + videoPill('ZZ03-SP-20261016-0001', '看演示视频') + '</div>';
-    const tools = '<div class="hscroll">' + D.tools.map((t) => '<div class="tool">' + (t.img ? ph(t.img, { g: 'tools', cap: t.t, video: t.video }) : stub('实物影像待补采')) + '<b>' + esc(t.t) + '</b><p>' + esc(t.d) + '</p></div>').join('') + '</div>';
-    const body = sec('农事一年', '点击步骤，依次查看一颗板枣从枣园到餐桌的流程。', stepper) +
-      sec('古井灌溉技艺', '甘棠井旁整理演示的传统灌溉方式。', well) +
-      sec('技艺口诀', '', '<button class="pill solid" data-say>查看枣乡口诀</button><div style="margin-top:12px">' + gap('传统物候口诀、土壤管护和古法植保经验，待老枣农口述采集后补入（可播放口述音频）。') + '</div>') +
-      sec('核心技艺', '', gap('环剥、修剪手法、窖藏保鲜等核心技艺的分步演示，待传承人实拍和口述采集后补入。')) +
-      sec('老农具档案', '左右滑动查看。', tools) +
-      '<div class="wrap"><p class="src">来源：《稷山板枣基本情况》；《稷山国家板枣公园简介》；稷山板枣博物馆展陈资料；项目采集素材</p></div>';
+    const H = D.hall2;
+    const tl = '<div class="tl">' + H.timeline.map((e) => '<div class="ev"><div class="when">' + esc(e.when) + '</div><h3>' + esc(e.title) + '</h3><p>' + esc(e.d) + '</p>' +
+      (e.quotes ? '<div class="qs">' + e.quotes.map((q) => '<p><span>' + esc(q[0]) + '</span><cite>' + esc(q[1]) + '</cite></p>').join('') + '</div>' : '') +
+      (e.link ? '<a class="lk" href="#' + e.link[0] + '">' + esc(e.link[1]) + I.r + '</a>' : '') +
+      (e.note ? '<p class="note">' + esc(e.note) + '</p>' : '') + '</div>').join('') + '</div>';
+    const wis = '<div class="wis">' + H.wisdom.map((w) => '<article>' + fig(w.img, { g: 'wis', cap: w.cap }) + '<h3>' + esc(w.t) + '</h3>' + para(w.d) + (w.quote ? quote(w.quote[0], w.quote[1]) : '') + '</article>').join('') + '</div>';
+    const body = sec('时间轴', '从野生酸枣到中国重要农业文化遗产。', tl) +
+      sec('先民的三项创造', '申报书「起源与演变历史」中提到的三项传统，至今仍在流传。', wis);
     return {
       html: hallShell(h, body),
       mount(root) {
-        const card = $('.stepcard', root), dots = $$('.dots button', root);
-        const show = (i) => {
-          const p = P[i];
-          dots.forEach((d, j) => { d.classList.toggle('cur', j === i); d.classList.toggle('done', j < i); });
-          const row = dots[i].parentNode; row.scrollTo({ left: dots[i].offsetLeft - row.clientWidth / 2 + dots[i].offsetWidth / 2, behavior: 'smooth' });
-          card.innerHTML = (p.img ? ph(p.img, { r: 'r169', g: 'proc', cap: p.name, video: p.video }) : stub(p.gap, 'r169')) +
-            '<div class="hd"><h3>' + esc(p.name) + '</h3><span class="when">' + esc(p.season) + '</span></div><div class="stage">' + esc(p.stage) + ' · 第 ' + (i + 1) + ' / ' + P.length + ' 步</div>' +
-            '<p class="t">' + esc(p.text) + '</p>' + (p.img && p.gap ? gap(p.gap) : '') +
-            '<div class="ctl"><button class="pill" data-prev ' + (i ? '' : 'disabled') + '>' + I.l + '上一步</button>' + audioBtn(p.voice, '听一句') +
-            '<button class="pill solid" data-next>' + (i < P.length - 1 ? '下一步' + I.r : '从头看') + '</button></div>';
-          $('[data-prev]', card).onclick = () => i && show(i - 1);
-          $('[data-next]', card).onclick = () => show(i < P.length - 1 ? i + 1 : 0);
-          syncAudio();
-        };
-        dots.forEach((d) => { d.onclick = () => show(+d.dataset.i); });
-        show(0);
-        $('[data-say]', root).onclick = () => openSheet('<h3>枣乡口诀</h3>' + D.sayings.map((s) => '<div class="motto" style="margin-top:12px"><div class="in"><div class="orig" style="margin-top:0">' + esc(s.t) + '</div><p class="small">' + esc(s.from) + '</p></div></div>').join(''));
+        if (!('IntersectionObserver' in window)) { $$('.ev', root).forEach((e) => e.classList.add('on')); return; }
+        const io = new IntersectionObserver((es) => es.forEach((en) => { if (en.isIntersecting) en.target.classList.add('on'); }), { rootMargin: '0px 0px -35% 0px' });
+        $$('.ev', root).forEach((e) => io.observe(e));
       }
     };
   }
 
-  /* ---------- 第三展厅 ---------- */
+  /* ---------- 第三展厅 农业特征 ---------- */
+  function sugarSVG() {
+    // 一颗掰开的干板枣，拉出糖丝；刻度尺 0—30 厘米，每厘米 10 个单位
+    let ticks = '';
+    for (let c = 0; c <= 30; c++) {
+      const x = 40 + c * 9.6, big = c % 5 === 0;
+      ticks += '<line x1="' + x + '" y1="58" x2="' + x + '" y2="' + (big ? 68 : 63) + '" stroke="#8F877C" stroke-width="' + (big ? 1.2 : .8) + '"/>' + (big ? '<text x="' + x + '" y="80" text-anchor="' + (c === 30 ? 'end' : 'middle') + '" dx="' + (c === 30 ? 6 : 0) + '" font-size="10" fill="#6C645B">' + (c === 30 ? '30 厘米' : c) + '</text>' : '');
+    }
+    return '<svg class="sg" viewBox="0 0 340 92" role="img" aria-label="板枣糖丝长度示意：25 到 30 厘米">' +
+      '<defs><linearGradient id="sgT" x1="0" x2="1"><stop offset="0" stop-color="#C98A2B"/><stop offset=".8" stop-color="#E2B75A"/><stop offset="1" stop-color="#E2B75A" stop-opacity=".35"/></linearGradient></defs>' +
+      '<rect x="' + (40 + 25 * 9.6) + '" y="16" width="' + (5 * 9.6) + '" height="42" fill="#A0855C" opacity=".14"/>' +
+      '<text x="' + (40 + 27.5 * 9.6) + '" y="12" text-anchor="middle" font-size="10" fill="#A0855C">25—30 厘米</text>' +
+      '<line x1="40" y1="58" x2="' + (40 + 30 * 9.6) + '" y2="58" stroke="#8F877C" stroke-width="1"/>' + ticks +
+      '<path class="thr" pathLength="100" d="M36 36 Q 180 46 ' + (40 + 28 * 9.6) + ' 37" fill="none" stroke="url(#sgT)" stroke-width="1.6" stroke-linecap="round"/>' +
+      '<g class="half"><path d="M8 22 C 8 14, 22 12, 30 16 C 36 19, 38 28, 36 40 C 34 50, 22 54, 14 50 C 6 46, 6 32, 8 22 Z" fill="#7A2320"/><path d="M14 24 C 16 20, 26 20, 30 24 C 33 30, 32 40, 28 45 C 24 49, 16 47, 13 42 C 10 36, 11 29, 14 24 Z" fill="#D9A55A"/><ellipse cx="21" cy="35" rx="3.4" ry="6" fill="#8A5A2B"/></g>' +
+      '</svg>';
+  }
   function pHall3(h) {
-    const SS = D.spotSeasons;
-    const seas = '<div class="seas4"><div class="seg" role="tablist">' + SS.items.map((s, i) => '<button role="tab" data-i="' + i + '" class="' + (s.img ? '' : 'miss') + '" aria-selected="' + (s.k === '秋') + '">' + s.k + '</button>').join('') + '</div>' +
-      '<div class="hscroll">' + SS.items.map((s) => '<div>' + (s.img ? ph(s.img, { r: '', g: 'seas', cap: s.cap }) : stub(SS.spot + ' · ' + s.k + '季影像待补拍', '')) + '<div class="lab"><b>' + s.k + '</b><span>' + (s.img ? esc(s.cap) : '同一点位按季节补拍') + '</span></div></div>').join('') + '</div></div>';
-    const P = D.panos;
-    const pano = '<div class="panotabs">' + P.map((p, i) => '<button class="chip" data-p="' + i + '" aria-pressed="' + (i === 0) + '">' + esc(p.name) + '</button>').join('') + '</div>' +
-      '<div class="pano"><div class="strip"><img alt=""><span class="hint">' + '← 左右拖动 →</span></div><h3><b></b><span>360° 全景展开</span></h3><p></p></div>' +
-      (ON_PLATFORM ? '<div style="margin-top:12px"><a class="pill" href="/tour/" target="_blank" rel="noopener">进入 VR 全景导览' + I.arrow + '</a></div>' : '');
-    const scenes = '<div class="grid2">' + D.scenes.map((s) => '<figure>' + (s.img ? ph(s.img, { g: 'scn', cap: s.t, video: s.video }) : stub('影像待补采')) + '<figcaption><b style="font-family:var(--serif);font-size:15px;color:var(--ink)">' + esc(s.t) + '</b><br>' + esc(s.d) + '</figcaption></figure>').join('') + '</div>';
-    const body = sec('同一点位 · 四季对比', '左右滑动，切换唐枣园的春、夏、秋、冬。', seas) +
-      sec('全景长图', '27 个全景点位中选取 7 个，横向拖动浏览。', pano) +
-      sec('景观档案', '连片古枣林、灌溉井渠、林间古道等景观要素。', scenes);
+    const H = D.hall3, T = H.trees;
+    const trees = bars(T.rows, { max: 80000 }) + srcNote(T.src) + '<div style="margin-top:16px">' + fig(T.img, { g: 'h3t', cap: T.cap, r: 'r169' }) + '</div>' + '<p class="txt" style="margin-top:12px">' + esc(T.text) + '</p>';
+    const types = '<div class="sw" data-swbox><div class="chips" role="tablist">' + H.types.map((t, i) => '<button class="chip" role="tab" data-sw aria-pressed="' + (i === 0) + '">' + esc(t.t) + '</button>').join('') + '</div>' +
+      H.types.map((t, i) => '<div class="grid2" data-pane style="margin-top:14px"' + (i ? ' hidden' : '') + '>' + t.imgs.map((s, j) => ph(s, { g: 'type', cap: t.t + '（' + (j + 1) + '）' })).join('') + '</div>').join('') + '</div>' + srcNote(H.typesSrc);
+    const Q = H.quality;
+    const quality = quote(Q.rhyme, '申报书引用的民间说法', 'rhyme') + recTable(Q.rows) +
+      '<div class="sugar"><div class="sgw">' + sugarSVG() + '</div><div class="sgc"><button class="pill solid" data-pull>拉糖丝</button><span>制干后掰开，能拉出 25—30 厘米长的金黄色糖丝。</span></div></div>' + srcNote(Q.src);
+    const P = H.products;
+    const prod = para(P.text) + tags(P.chips) + '<div style="margin-top:14px">' + fig(P.img, { g: 'h3p', cap: P.cap }) + '</div>';
+    const land = fig('SB-06', { g: 'h3l', cap: '枣麦套种间作复合生产（申报书图 2-5）' }) + '<p class="txt" style="margin-top:12px">' + esc(H.land.text) + '</p>' + '<h3 class="sub">合理的水肥利用</h3>' + para(H.land.water);
+    const E = H.econ;
+    const econ = nums(E.nums) + recTable(E.rows, 'mt') + srcNote(E.src) + '<h3 class="sub">五条增收途径</h3><ul class="dots2">' + E.ways.map((w) => '<li>' + esc(w) + '</li>').join('') + '</ul>';
+    const honors = '<div class="hscroll honors">' + H.honors.map((x) => '<figure>' + ph(x.img, { r: '', g: 'hon', cap: x.t }) + '<figcaption>' + esc(x.t) + '</figcaption></figure>').join('') + '</div>';
+    const body = sec('集中的古板枣树分布', '全县古板枣树数量（株）。', trees) +
+      sec('稷山枣典型类型', '切换查看申报书收录的四个类型。', types) +
+      sec('板枣的品质', '', quality) +
+      sec('以板枣为主的多样化产品', '', prod) +
+      sec('集约的土地利用方式', '', land) +
+      sec('突出的经济价值', '', econ) +
+      sec('所获荣誉', H.honorText, honors);
     return {
       html: hallShell(h, body),
       mount(root) {
-        const sc = $('.seas4 .hscroll', root), segs = $$('.seg button', root);
-        const panels = $$('.seas4 .hscroll > div', root);
-        const padL = () => parseFloat(getComputedStyle(sc).paddingLeft) || 0;
-        const goSeason = (i, smooth) => { sc.scrollTo({ left: panels[i].offsetLeft - padL(), behavior: smooth ? 'smooth' : 'auto' }); };
-        segs.forEach((b) => { b.onclick = () => goSeason(+b.dataset.i, true); });
-        let t = null;
-        sc.addEventListener('scroll', () => {
-          clearTimeout(t); t = setTimeout(() => {
-            const x = sc.scrollLeft; let best = 0, bd = 1e9;
-            panels.forEach((p, i) => { const d = Math.abs(p.offsetLeft - padL() - x); if (d < bd) { bd = d; best = i; } });
-            segs.forEach((s, i) => s.setAttribute('aria-selected', i === best));
-          }, 80);
-        }, { passive: true });
-        requestAnimationFrame(() => goSeason(2, false));
+        mountSwitch(root, '[data-swbox]');
+        const box = $('.sugar', root), btn = $('[data-pull]', root);
+        btn.onclick = () => { box.classList.remove('on'); void box.offsetWidth; box.classList.add('on'); btn.textContent = '再拉一次'; };
+      }
+    };
+  }
+
+  /* ---------- 第四展厅 生态特征 ---------- */
+  function wellSVG(W) {
+    return '<svg class="well" viewBox="0 0 340 210" role="img" aria-label="地下水位变化示意：往年 1 到 2 米，如今上百米">' +
+      '<rect x="0" y="34" width="340" height="176" fill="#E7E1D3"/><rect x="0" y="30" width="340" height="6" fill="#B79E73"/>' +
+      '<text x="85" y="20" text-anchor="middle" font-size="12" fill="#2B251F" font-weight="600">往年 · 河滩地</text><text x="255" y="20" text-anchor="middle" font-size="12" fill="#2B251F" font-weight="600">如今</text>' +
+      '<rect x="72" y="36" width="26" height="30" fill="#F8F8F4" stroke="#8F877C"/><rect x="73" y="52" width="24" height="13" fill="#7FA7B5"/>' +
+      '<path d="M108 36 v16" stroke="#6C645B"/><path d="M104 36 h8 M104 52 h8" stroke="#6C645B"/><text x="116" y="48" font-size="11" fill="#2B251F">水位 ' + esc(W.past) + '</text>' +
+      '<rect x="242" y="36" width="26" height="160" fill="#F8F8F4" stroke="#8F877C"/>' +
+      '<path d="M236 110 l12 -6 l12 6 l12 -6 l6 3" stroke="#E7E1D3" stroke-width="8" fill="none"/><path d="M236 106 l12 -6 l12 6 l12 -6 M236 116 l12 -6 l12 6 l12 -6" stroke="#8F877C" fill="none"/>' +
+      '<rect x="243" y="182" width="24" height="13" fill="#7FA7B5"/>' +
+      '<path d="M282 36 v146" stroke="#6C645B" stroke-dasharray="3 3"/><path d="M278 36 h8 M278 182 h8" stroke="#6C645B"/><text x="290" y="150" font-size="11" fill="#2B251F">打井</text><text x="290" y="165" font-size="11" fill="#2B251F">' + esc(W.now) + '</text>' +
+      '<text x="12" y="204" font-size="10" fill="#8F877C">示意图，不按比例</text></svg>';
+  }
+  function pHall4(h) {
+    const H = D.hall4, B = H.bio, W = H.water;
+    const bio = nums(B.nums) + '<h3 class="sub">脊椎动物 190 种，按纲统计</h3>' + bars(B.classes.map((c) => [c[0], c[1], c[1] + ' 种'])) +
+      para(B.text) + B.groups.map((g) => '<h3 class="sub">' + esc(g[0]) + '</h3>' + tags(g[1].split('、'))).join('') + srcNote(B.src);
+    const water = para(W.text) + '<div class="wellbox">' + wellSVG(W) + '</div><p class="small">' + esc(W.cmp) + '</p>' + para(W.text2);
+    const body = sec('野生动植物生物多样性', '稷山板枣树群被誉为黄土高原上的绿洲。', bio) +
+      sec('水土保持和水源涵养', '', water) +
+      sec('防风固沙和改良气候', '', para(H.wind)) +
+      sec('生态适应', '', para(H.adapt)) +
+      sec('农业生态保护图', '', mapBox(H.map, 'h4map'));
+    return { html: hallShell(h, body), mount() {} };
+  }
+
+  /* ---------- 第五展厅 景观特征 ---------- */
+  function pHall5(h) {
+    const H = D.hall5, P = H.panos;
+    const gal = '<div class="grid2">' + H.gallery.map((g) => '<figure>' + ph(g.img, { g: 'h5g', cap: g.t + '（申报书' + g.n + '）' }) + '<figcaption><b>' + esc(g.t) + '</b> · 申报书' + esc(g.n) + '</figcaption></figure>').join('') + '</div>';
+    const pano = '<div class="panotabs">' + P.map((p, i) => '<button class="chip" data-p="' + i + '" aria-pressed="' + (i === 0) + '">' + esc(p.name) + '</button>').join('') + '</div>' +
+      '<div class="pano"><div class="strip"><img alt=""><span class="hint">← 左右拖动 →</span></div><h3><b></b><span>360° 全景展开 · ' + SHOT + '</span></h3><p></p></div>' +
+      (ON_PLATFORM ? '<div style="margin-top:12px"><a class="pill" href="/tour/" target="_blank" rel="noopener">进入 VR 全景导览' + I.arrow + '</a></div>' : '');
+    const body = sec('古树之美', '', quote(H.quote, H.quoteSrc, 'big') + para(H.text)) +
+      sec('景观图集', '申报书照片「生态景观」图 5—图 10，点击放大。', gal) +
+      sec('农业景观保护图', '', mapBox(H.map, 'h5map')) +
+      sec('360° 全景', '国家板枣公园及周边，' + SHOT + '，横向拖动浏览。', pano);
+    return {
+      html: hallShell(h, body),
+      mount(root) {
         const strip = $('.strip', root), img = $('.strip img', root), hint = $('.hint', root);
         const showPano = (i) => {
           const p = P[i]; img.src = 'assets/pano/' + p.id + '.jpg'; img.alt = p.name + '全景展开图';
@@ -482,7 +463,6 @@
         };
         $$('.panotabs .chip', root).forEach((c) => { c.onclick = () => showPano(+c.dataset.p); });
         strip.addEventListener('scroll', () => { hint.style.opacity = 0; }, { passive: true });
-        // 鼠标拖动
         let dn = null;
         strip.addEventListener('mousedown', (e) => { dn = [e.clientX, strip.scrollLeft]; e.preventDefault(); });
         window.addEventListener('mousemove', (e) => { if (dn) strip.scrollLeft = dn[1] - (e.clientX - dn[0]); });
@@ -492,116 +472,143 @@
     };
   }
 
-  /* ---------- 第四展厅 ---------- */
-  function cmpWidget(v) {
-    return '<div class="cmp" style="--x:50%"><div class="now"><img src="' + src(v.now) + '" alt="' + esc(v.nowCap) + '"></div>' +
-      '<div class="old"><div class="oldin"><span><b>老照片征集中</b>欢迎提供本村旧照，补入后可与现状对比</span></div></div>' +
-      '<div class="bar2"></div><div class="knob">' + I.lr + '</div><span class="lbl l">旧照</span><span class="lbl r">现状</span>' +
-      '<input type="range" min="0" max="100" value="50" aria-label="拖动对比旧照与现状"></div><p class="src">现状：' + esc(v.nowCap) + '</p>';
+  /* ---------- 第六展厅 技术体系 ---------- */
+  function ringSVG() {
+    // 示意：根部吸收的水分养分照常上行；树冠光合产物下行到环割口受阻，留在上部供果
+    return '<svg class="ring" viewBox="0 0 340 250" role="img" aria-label="环割原理示意">' +
+      '<defs><marker id="ah1" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#5E6743"/></marker>' +
+      '<marker id="ah2" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#7A2320"/></marker></defs>' +
+      '<ellipse cx="170" cy="52" rx="96" ry="34" fill="#C9D0AE"/><ellipse cx="120" cy="60" rx="46" ry="24" fill="#B5BF92"/><ellipse cx="222" cy="58" rx="48" ry="24" fill="#B5BF92"/>' +
+      '<circle cx="132" cy="68" r="5" fill="#9E2A24"/><circle cx="198" cy="72" r="5" fill="#9E2A24"/><circle cx="168" cy="44" r="5" fill="#9E2A24"/><circle cx="230" cy="50" r="4.5" fill="#9E2A24"/>' +
+      '<path d="M156 84 L150 210 L190 210 L184 84 Z" fill="#8A6A4B"/><path d="M162 90 L158 204 M176 90 L180 204" stroke="#6E5238" stroke-width="1.2"/>' +
+      '<rect x="150" y="142" width="38" height="7" fill="#F2E3C4" stroke="#7A2320" stroke-width="1.2"/>' +
+      '<path d="M150 210 C 130 222, 110 226, 92 236 M170 210 C 168 224, 166 232, 162 244 M190 210 C 210 222, 232 228, 252 236" stroke="#8A6A4B" stroke-width="5" fill="none" stroke-linecap="round"/>' +
+      '<path d="M128 92 V 136" stroke="#7A2320" stroke-width="2.4" marker-end="url(#ah2)"/><path d="M118 142 H 138" stroke="#7A2320" stroke-width="2.4"/>' +
+      '<path d="M212 226 V 96" stroke="#5E6743" stroke-width="2.4" marker-end="url(#ah1)"/>' +
+      '<text x="14" y="108" font-size="11" fill="#7A2320">光合产物向下</text><text x="14" y="123" font-size="11" fill="#7A2320">在环割处受阻，</text><text x="14" y="138" font-size="11" fill="#7A2320">留在树冠供果实</text>' +
+      '<text x="222" y="170" font-size="11" fill="#5E6743">根部的水分和</text><text x="222" y="185" font-size="11" fill="#5E6743">养分照常向上</text>' +
+      '<text x="196" y="140" font-size="11" fill="#2B251F">环割口</text>' +
+      '<text x="330" y="244" font-size="10" fill="#8F877C" text-anchor="end">示意图</text></svg>';
   }
-  function villageCard(v) {
-    if (v.state !== 'done') return '<div class="vcard"><h3>' + esc(v.name) + '</h3><div class="small">' + esc(v.town) + '</div><div style="margin-top:12px">' + gap(v.text, v.state === 'pending') + '</div></div>';
-    return '<div class="vcard"><h3>' + esc(v.name) + '</h3><div class="small">' + esc(v.town) + ' · 一村一档</div>' +
-      '<div style="margin-top:12px">' + cmpWidget(v) + '</div>' +
-      '<p class="txt" style="margin-top:12px">' + esc(v.text) + '</p>' +
-      '<div style="margin-top:14px">' + recTable(v.rows) + '</div>' +
-      (v.gallery.length ? '<div class="' + (v.gallery.length > 1 ? 'grid2' : '') + '" style="margin-top:14px">' + v.gallery.map((g) => fig(g, { g: 'vil', r: v.gallery.length > 1 ? 'r43' : 'r169', video: M[g] && M[g].video && v.videos.indexOf(g) >= 0 ? g : null })).join('') + '</div>' : '') +
-      (v.videos.length ? '<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">' + v.videos.map((s) => videoPill(s, meta(s).cap)).join('') + '</div>' : '') +
-      (v.pano ? '<div class="pano"><div class="strip"><img src="assets/pano/' + v.pano + '.jpg" alt="全景展开图"><span class="hint">← 左右拖动 →</span></div><p>' + esc(v.pano === 'p0014' ? '陶梁村广场 360° 全景展开（2026-10-17）' : '《枣林赞歌》浮雕 360° 全景展开（加庄村西）') + '</p></div>' : '') +
-      '</div>';
+  function calCard(c) {
+    return '<div class="hd"><h3>' + esc(c.stage) + '</h3><span class="when">' + esc(c.when) + '</span></div>' +
+      '<table class="rec cal">' + c.items.map((it) => '<tr><th>' + esc(it[0]) + '</th><td>' + esc(it[1]) + (it[2] ? '<small>目的：' + esc(it[2]) + '</small>' : '') + '</td></tr>').join('') + '</table>';
   }
-  function pHall4(h) {
-    const V = D.villages;
-    const tabs = '<div class="vtabs">' + V.map((v, i) => '<button data-i="' + i + '" aria-pressed="' + (i === 0) + '" class="' + (v.state === 'pending' ? 'pending' : '') + '">' + esc(v.name) + '<span>' + esc(v.state === 'done' ? '已建档' : v.state === 'todo' ? '待采集' : '待确认') + '</span></button>').join('') + '</div>';
-    const body = sec('行政村档案', '按 6 个行政村分组：古窑洞、老院落、街巷、祠堂档案，实拍照片、建筑特征、历史沿革、现状记录。', tabs + '<div class="vhost"></div>') +
-      '<div class="wrap"><p class="src">来源：《山西稷山国家板枣公园简介》；项目采集素材（2026-10-17、18）</p></div>';
-    return {
-      html: hallShell(h, body),
-      mount(root) {
-        const host = $('.vhost', root);
-        const show = (i) => {
-          $$('.vtabs button', root).forEach((b) => b.setAttribute('aria-pressed', +b.dataset.i === i));
-          host.innerHTML = villageCard(V[i]);
-          const c = $('.cmp', host);
-          if (c) { const r = $('input', c); r.oninput = () => c.style.setProperty('--x', r.value + '%'); }
-          const s = $('.strip', host); if (s) { const im = $('img', s); const hint = $('.hint', s); im.onload = () => { s.scrollLeft = (im.width - s.clientWidth) / 2; }; s.addEventListener('scroll', () => { hint.style.opacity = 0; }, { passive: true }); }
-        };
-        $$('.vtabs button', root).forEach((b) => { b.onclick = () => show(+b.dataset.i); });
-        show(0);
-      }
-    };
-  }
-
-  /* ---------- 第五展厅 ---------- */
-  function pHall5(h) {
-    const T = D.timeline;
-    const tl = '<div class="tl">' + T.map((e, i) => '<div class="ev" data-i="' + i + '"><div class="when">' + esc(e.when) + '</div><h3>' + esc(e.title) + '<span>' + esc(e.tag) + '</span></h3><p>' + esc(e.d) + '</p>' +
-      (e.imgs && e.imgs.length ? '<div class="imgs">' + e.imgs.map((s) => ph(s, { g: 'tl' + i, r: '', cap: (e.capOverride && e.capOverride[s]) || capOf(s) })).join('') + '</div>' : '') +
-      (e.video ? '<div style="margin-top:10px">' + videoPill(e.video, meta(e.video).cap) + '</div>' : '') +
-      (e.gap ? gap(e.gap) : '') + '</div>').join('') + '</div>';
-    const body = sec('节庆时间轴', '沿时间轴浏览枣乡一年里的祭祀、仪式和庆典。', tl) +
-      '<div class="wrap"><p class="src">来源：《稷山国家板枣公园简介》；《稷山板枣基本情况》；项目采集素材</p></div>';
-    return {
-      html: hallShell(h, body),
-      mount(root) {
-        if (!('IntersectionObserver' in window)) return;
-        const io = new IntersectionObserver((es) => es.forEach((en) => { if (en.isIntersecting) en.target.classList.add('on'); }), { rootMargin: '0px 0px -40% 0px' });
-        $$('.ev', root).forEach((e) => io.observe(e));
-      }
-    };
-  }
-
-  /* ---------- 第六展厅 ---------- */
   function pHall6(h) {
-    const st = '<div class="stories">' + D.stories.map((s) => '<div class="story" data-s="' + s.id + '"><button class="top">' + '<span class="ph">' + '<img loading="lazy" src="' + src(s.img) + '" alt=""></span><span class="tx2"><b>' + esc(s.t) + '</b><span class="lk">' + I.play + '点开听故事</span></span></button>' +
-      '<div class="more" hidden><p>' + esc(s.d) + '</p><div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">' + audioBtn(s.id, '听啾啾讲', '暂停') + '<button class="pill" data-z="' + s.img + '" data-g="st-' + s.id + '">看图</button></div><p class="src">' + esc(s.src) + '</p></div></div>').join('') + '</div>';
-    const cus = '<div class="grid2">' + D.customs.map((c) => fig(c.img, { g: 'cus', cap: c.t, video: c.video })).join('') + '</div>';
-    const body = sec('枣乡故事', '点击故事卡片，播放讲解音频。', st) +
-      sec('民俗影像', '婚俗、剪纸、枣木器物等与枣乡生活相关的民俗实物。', cus + '<p class="src">各项民俗的来历与做法待访谈补充。</p>') +
-      sec('口述音频', '', gap('老枣农讲述的民间故事和习俗口述音频，待受访者授权后上线。', true));
+    const H = D.hall6, A = H.agro, G = H.graft, S = H.steps;
+    const layers = '<div class="layers">' + A.layers.map((l) => '<div class="ly"><b>' + esc(l.k) + '</b><p>' + esc(l.d) + '</p></div>').join('') + '</div>';
+    const agro = para(A.text) + layers + '<h3 class="sub">常见的林下作物</h3>' + tags(A.crops) + '<h3 class="sub">放养家禽</h3>' + tags(A.birds);
+    const graft = para(G.text) + '<div class="ringbox">' + ringSVG() + '</div>' + para(G.ring) + '<div class="grid2" style="margin-top:14px">' + G.imgs.map((x) => fig(x[0], { g: 'ring', cap: x[1] })).join('') + '</div>';
+    const stepper = '<div class="stepper"><div class="dots">' + S.map((p, i) => '<button data-i="' + i + '"><i>' + (i + 1) + '</i>' + esc(p.name) + '</button>').join('') + '</div><div class="stepcard"></div></div>';
+    const C = H.calendar;
+    const months = '<div class="months" aria-hidden="true">' + [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => '<span data-m="' + m + '">' + m + '</span>').join('') + '</div>';
+    const cal = months + '<div class="calrow">' + C.map((c, i) => '<button class="cbtn" data-c="' + i + '"><b>' + esc(c.stage) + '</b><small>' + esc(c.when) + '</small></button>').join('') + '</div>' +
+      '<div class="calcard"></div>' + srcNote(H.calSrc) + scans(H.calScans, 'calscan', '物候历原件');
+    const songs = '<div class="songs" data-swbox><div class="seg" role="tablist">' + H.songs.map((s, i) => '<button role="tab" data-sw aria-selected="' + (i === 0) + '">' + s.k + '</button>').join('') + '</div>' +
+      H.songs.map((s, i) => '<div data-pane' + (i ? ' hidden' : '') + '><div class="poem">' + s.lines.map((l) => '<p' + (l === '……' ? ' class="gap"' : '') + '>' + esc(l) + '</p>').join('') + '</div>' +
+        '<div class="row">' + audioBtn(s.voice, '听「' + s.k + '」', '暂停') + '</div>' + (s.note ? '<p class="note">' + esc(s.note) + '</p>' : '') + '</div>').join('') + '</div>' +
+      srcNote(H.songSrc) + scans(H.songScans, 'songscan', '四季歌原件');
+    const Pr = H.prune;
+    const prune = '<div class="poem">' + Pr.lines.map((l) => '<p' + (l === '……' ? ' class="gap"' : '') + '>' + esc(l) + '</p>').join('') + '</div><div class="row">' + audioBtn(Pr.voice, '听修剪歌', '暂停') + '</div>' + srcNote(Pr.src) + scans(Pr.scans, 'prscan', '修剪歌原件');
+    const Pe = H.pests;
+    const pests = para(Pe.survey) + '<h3 class="sub">' + esc(Pe.oldT) + '</h3>' + tags(Pe.old) + para(Pe.now) + '<p class="txt" style="margin-top:8px">' + esc(Pe.way) + '</p><div style="margin-top:14px">' + fig(Pe.img, { g: 'pest', cap: Pe.cap }) + '</div>';
+    const tools = '<div class="hscroll">' + H.tools.map((t) => '<div class="tool">' + ph(t[0], { g: 'tools', cap: t[1] + '（申报书）' }) + '<b>' + esc(t[1]) + '</b></div>').join('') + '</div>';
+    const body = sec('林下复合种养', '枣树、林下作物、家禽和土壤，彼此互补。', agro) +
+      sec('嫁接与环割', '', graft) +
+      sec('一颗板枣的一年', '申报书「稷山板枣生产过程」图 11—图 19。点击步骤依次查看，可收听讲解。', stepper) +
+      sec('全年物候历', '点选物候期，查看当期的管理措施。', cal) +
+      sec('四季歌', '《稷山板枣无公害标准化管理四季歌》，可收听朗读。', songs) +
+      sec('修剪歌', '', prune) +
+      sec('病虫害防治', '', pests) +
+      sec('标准化栽植', H.rulesSrc, acc(H.rules)) +
+      sec('传统农具', H.toolsText, tools);
     return {
       html: hallShell(h, body),
       mount(root) {
-        $$('.story', root).forEach((s) => {
-          $('.top', s).onclick = () => {
-            const open = !s.classList.contains('open');
-            $$('.story', root).forEach((o) => { o.classList.remove('open'); $('.more', o).hidden = true; });
-            if (open) { s.classList.add('open'); $('.more', s).hidden = false; if (curKey !== s.dataset.s || audio.paused) playKey(s.dataset.s); }
-            else if (curKey === s.dataset.s) stopAudio();
-          };
-        });
+        // 生产过程分步
+        const card = $('.stepcard', root), dots = $$('.dots button', root);
+        const show = (i) => {
+          const p = S[i];
+          dots.forEach((d, j) => { d.classList.toggle('cur', j === i); d.classList.toggle('done', j < i); });
+          const row = dots[i].parentNode; row.scrollTo({ left: dots[i].offsetLeft - row.clientWidth / 2 + dots[i].offsetWidth / 2, behavior: 'smooth' });
+          card.innerHTML = ph(p.img, { r: 'r169', g: 'proc', cap: p.name + '（申报书）' }) +
+            '<div class="hd"><h3>' + esc(p.name) + '</h3><span class="when">' + esc(p.when) + '</span></div><div class="stage">第 ' + (i + 1) + ' / ' + S.length + ' 步</div>' +
+            '<p class="t">' + esc(p.text) + '</p>' +
+            '<div class="ctl"><button class="pill" data-prev ' + (i ? '' : 'disabled') + '>' + I.l + '上一步</button>' + audioBtn(p.voice, '听一听') +
+            '<button class="pill solid" data-next>' + (i < S.length - 1 ? '下一步' + I.r : '从头看') + '</button></div>';
+          $('[data-prev]', card).onclick = () => i && show(i - 1);
+          $('[data-next]', card).onclick = () => show(i < S.length - 1 ? i + 1 : 0);
+          syncAudio();
+        };
+        dots.forEach((d) => { d.onclick = () => show(+d.dataset.i); });
+        show(0);
+        // 物候历：默认选中本月所在的物候期
+        const cbtns = $$('.cbtn', root), cc = $('.calcard', root), ms = $$('.months span', root);
+        const nowM = new Date().getMonth() + 1;
+        ms.forEach((s) => s.classList.toggle('now', +s.dataset.m === nowM));
+        const pick = (i, scroll) => {
+          cbtns.forEach((b, j) => b.setAttribute('aria-pressed', j === i));
+          ms.forEach((s) => s.classList.toggle('on', C[i].m.indexOf(+s.dataset.m) >= 0));
+          cc.innerHTML = calCard(C[i]);
+          if (scroll) { const r = cbtns[i].parentNode; r.scrollTo({ left: cbtns[i].offsetLeft - 8, behavior: 'smooth' }); }
+        };
+        cbtns.forEach((b, j) => { b.onclick = () => pick(j); });
+        let start = C.findIndex((c) => c.m.indexOf(nowM) >= 0); if (start < 0) start = 0;
+        pick(start); requestAnimationFrame(() => { const r = cbtns[start].parentNode; r.scrollLeft = cbtns[start].offsetLeft - 8; });
+        mountSwitch(root, '[data-swbox]');
       }
     };
   }
 
-  /* ---------- 第七展厅 ---------- */
+  /* ---------- 第七展厅 文化特征 ---------- */
   function pHall7(h) {
-    const mt = D.mottos.map((m) => '<div class="motto">' + ph(m.img, { r: '', g: 'mt', cap: m.imgCap }) + '<div class="in"><div class="k">' + esc(m.kind) + ' · ' + esc(m.who) + '</div><h3>' + esc(m.t) + '</h3>' +
-      '<div class="orig">' + esc(m.orig) + '</div><p class="gl"><b>释义　</b>' + esc(m.gloss) + '</p><div style="margin-top:12px">' + audioBtn(m.voice, '听讲解', '暂停') + '</div><p class="src">' + esc(m.src) + '。图为园内刻红字的景石，是否即戒青石待考。</p></div></div>').join('');
-    const slots = '<div class="slots">' + D.mottoSlots.map((s) => '<div class="slot"><b>' + esc(s) + '</b><span>家训征集中</span></div>').join('') + '</div>';
-    const body = sec('碑刻乡规', '原文转录 + 释义。点击卡片按钮收听讲解。', mt) +
-      sec('各村家训', '各村家训、手抄文本、碑文记载、口头传承家风。', slots + '<div style="margin-top:12px">' + gap('征集各村家训原文、手抄本、碑刻拓片和口头传承的家风故事；整理后按「原文转录 + 释义 + 诵读音频」入馆。', true) + '</div>');
+    const H = D.hall7, L = H.legend, F = H.food, E = H.events;
+    const classics = para(H.classicsText) + H.classics.map((c) => quote(c[0], c[1]) + (c[2] ? '<p class="small qn">' + esc(c[2]) + '</p>' : '')).join('');
+    const poems = H.poems.map((p) => '<div class="pm"><h3>' + esc(p.t) + '</h3><div class="who">' + esc(p.who) + '</div><div class="poem' + (p.prose ? ' prose' : ' verse') + '">' + p.lines.map((l) => '<p>' + esc(l) + '</p>').join('') + '</div><div class="row">' + audioBtn(p.id, '听朗读', '暂停') + '</div></div>').join('');
+    const people = acc(H.people.map((p) => [p.name, p.d, p.era, p.src ? '<p class="src" style="margin-top:6px">' + esc(p.src) + '</p>' : ''])) + '<div style="margin-top:16px">' + fig(H.peopleImg[0], { g: 'ppl', cap: H.peopleImg[1], r: 'r169' }) + '</div>';
+    const legend = '<figure>' + ph(L.img, { r: '', g: 'leg', cap: L.credit }) + '<figcaption>' + esc(L.credit) + '</figcaption></figure>' +
+      '<div class="story2">' + L.summary.map((t) => para(t)).join('') + '</div><div class="row">' + audioBtn(L.voice, '听啾啾讲传说', '暂停') + '</div>' + srcNote(L.note);
+    const food = para(F.text) + '<div class="grid2" style="margin-top:14px">' + F.items.map((x) => fig(x[0], { g: 'food', cap: x[1] + '（申报书）' })).join('') + '</div><p class="txt" style="margin-top:12px">' + esc(F.text2) + '</p>';
+    const events = para(E.text) + '<div class="grid2" style="margin-top:14px">' + E.items.map((x) => fig(x[0], { g: 'evt', cap: x[1] + '（申报书）' })).join('') + '</div>';
+    const body = sec('典籍里的「羊枣」', '', classics) +
+      sec('历史人物', '点开人名查看事迹。', people) +
+      sec('诗文', '申报书引用的两篇诗文。', poems) +
+      sec('板儿与板枣的传说', '稷山民间广为流传，是宣传板枣起源的重要民间轶事。', legend) +
+      sec('饮食文化', '', food) +
+      sec('节庆与文化活动', '', events) +
+      sec('后稷故里', '', para(H.houji)) +
+      sec('农业文化保护图', '', mapBox(H.map, 'h7map'));
     return { html: hallShell(h, body), mount() {} };
   }
 
-  /* ---------- 第八展厅 ---------- */
+  /* ---------- 第八展厅 价值与保护 ---------- */
+  function zonesSVG(Z) {
+    return '<svg class="zones" viewBox="0 0 340 190" role="img" aria-label="保护区分区示意：核心区、缓冲区、发展区">' +
+      '<ellipse cx="170" cy="95" rx="164" ry="88" fill="#E3E5D8" stroke="#B9BDA6"/><ellipse cx="170" cy="100" rx="112" ry="60" fill="#C7CDAF" stroke="#9EA684"/><ellipse cx="170" cy="106" rx="58" ry="30" fill="#5E6743"/>' +
+      '<text x="170" y="111" text-anchor="middle" font-size="14" fill="#fff" font-weight="700">' + esc(Z[0][0]) + '</text>' +
+      '<text x="170" y="62" text-anchor="middle" font-size="13" fill="#2B251F">' + esc(Z[1][0]) + '</text>' +
+      '<text x="170" y="26" text-anchor="middle" font-size="13" fill="#2B251F">' + esc(Z[2][0]) + '</text>' +
+      '<text x="336" y="186" text-anchor="end" font-size="10" fill="#8F877C">示意图</text></svg>';
+  }
   function pHall8(h) {
-    const pc = '<div class="pcards">' + D.people.map((p, i) => '<div class="pcard"><button><span class="av">' + I.person + '</span><span><b>' + esc(p.t) + '</b><span>' + esc(p.role) + ' · 访谈 ' + esc(p.len) + '</span></span><span class="chev">' + I.r + '</span></button>' +
-      '<div class="more" hidden>' + recTable([['身份', p.role], ['访谈场景', p.where], ['访谈时长', p.len], ['采集日期', p.date], ['姓名与照片', '待本人授权后公开'], ['擅长技艺', '待访谈转写后补充'], ['传承经历', '待访谈转写后补充'], ['访谈视频', '待授权后上线']]) + '</div></div>').join('') + '</div>';
-    const gp = '<div class="pcards">' + D.groups.map((g, i) => '<div class="pcard"><button><span class="av"><img src="' + src(g.imgs[0]) + '" alt=""></span><span><b>' + esc(g.t) + '</b><span>' + esc(g.d.slice(0, 22)) + '…</span></span><span class="chev">' + I.r + '</span></button>' +
-      '<div class="more" hidden><p class="txt">' + esc(g.d) + '</p><div class="grid2">' + g.imgs.map((s) => ph(s, { g: 'grp' + i })).join('') + '</div>' + (g.video ? '<div style="margin-top:10px">' + videoPill(g.video, '看座谈会视频') + '</div>' : '') + '</div></div>').join('') + '</div>';
-    const body = sec('传承人', '传承人卡片：照片、简介、擅长技艺、传承经历、访谈视频。', gap('传承人认定名单待补；按「全覆盖、濒危优先」原则，优先采集高龄传承人和老枣农。') ) +
-      sec('人物访谈', '2026 年 10 月 17 日完成第一批访谈：3 位受访者、6 段视频，约 45 分钟。', pc) +
-      sec('枣乡人物与专家', '', gp) +
-      '<div class="wrap"><p class="src">来源：项目采集素材（2026-10-16、17）</p></div>';
-    return {
-      html: hallShell(h, body),
-      mount(root) {
-        $$('.pcard > button', root).forEach((b) => {
-          b.onclick = () => { const c = b.parentNode, open = !c.classList.contains('open'); c.classList.toggle('open', open); $('.more', c).hidden = !open; };
-        });
-      }
-    };
+    const H = D.hall8, R = H.rule;
+    const later = '<div class="later">' + H.later.map((x) => '<div class="lt">' + (x.img ? ph(x.img, { g: 'later', cap: x.cap }) : '<div class="ph r43 yr"><b>' + esc((x.when || '').replace(/\D/g, '')) + '</b><span>第四批中国重要<br>农业文化遗产</span></div>') +
+      '<div><b>' + esc(x.t) + '</b>' + (x.when ? '<span class="when">' + esc(x.when) + '</span>' : '') + '<p>' + esc(x.d) + '</p>' + (x.img ? '<span class="shot">' + SHOT + '</span>' : '') + '</div></div>').join('') + '</div>' + srcNote(H.laterSrc);
+    const measures = '<div class="sw" data-swbox><div class="chips" role="tablist"><button class="chip" role="tab" data-sw aria-pressed="true">已采取的措施</button><button class="chip" role="tab" data-sw aria-pressed="false">拟采取的措施</button></div>' +
+      '<div data-pane>' + vrows(H.done) + '</div><div data-pane hidden>' + vrows(H.plan) + '</div></div>';
+    const rule = '<div class="zonebox">' + zonesSVG(R.zones) + '</div>' + recTable(R.zones) + srcNote(R.zoneNote) +
+      '<h3 class="sub">条文摘要</h3>' + recTable(R.articles, 'art') + '<div style="margin-top:14px">' + fig(R.img, { g: 'rule', cap: R.imgT, r: 'r34' }) + '</div>' + srcNote(R.src);
+    const body = sec('遗产的功能与重要性', '申报书第三部分「遗产功能与重要性评估」。', vrows(H.values)) +
+      sec('与同类枣区比较', H.compareSrc, recTable(H.compare)) +
+      sec('问题与挑战', D.prelude.threat, '<h3 class="sub">主要问题</h3>' + vrows(H.problems) + '<h3 class="sub">主要挑战</h3>' + vrows(H.challenges)) +
+      sec('机遇', '', '<ul class="dots2">' + H.chances.map((c) => '<li>' + esc(c) + '</li>').join('') + '</ul>') +
+      sec('保护与发展措施', '', measures) +
+      sec('管理办法', '申报书附件六。保护区分为核心区、缓冲区和发展区。', rule) +
+      sec('发展布局图', '', mapTabs(H.maps, 'h8map')) +
+      sec('承诺', '申报书第七部分「承诺函」。', quote(H.promise, '山西省稷山县人民政府', 'promise')) +
+      sec('申报之后', '申报书里的几项打算，后来的情况。', later) +
+      sec('科学研究', '', para(H.research));
+    return { html: hallShell(h, body), mount(root) { mountSwitch(root, '[data-swbox]'); mountMapTabs(root); } };
   }
 
   /* ================= 观展护照 ================= */
@@ -631,22 +638,22 @@
     g.strokeStyle = '#A0855C'; g.lineWidth = 2; g.strokeRect(40, 40, W - 80, H - 80);
     g.fillStyle = '#2B251F'; g.textAlign = 'center';
     g.font = '700 96px ' + serif; g.fillText('观展护照', W / 2, 520);
-    g.font = '700 36px ' + serif; g.fillStyle = '#5E6743'; g.fillText(D.titleLines[0] + ' · ' + D.titleLines[1], W / 2, 590); g.fillText(D.titleLines[2], W / 2, 640);
+    g.font = '700 36px ' + serif; g.fillStyle = '#5E6743'; g.fillText(D.titleLines[0] + D.titleLines[1], W / 2, 590); g.fillText(D.subtitle + ' · ' + D.titleLines[2], W / 2, 640);
     g.fillStyle = '#A0855C'; g.fillRect(W / 2 - 40, 672, 80, 2);
     const cols = 4, cw = 200, top = 720;
     for (let i = 0; i < 8; i++) {
       const h = HALLS[i], got = hasStamp(h.id);
       const x = (W - cols * cw) / 2 + (i % cols) * cw + cw / 2, y = top + Math.floor(i / cols) * 250;
-      const im = await svgImg(sealSVG(h.seal, got ? '#A8322A' : '#CFCCC1', 'c' + i).replace('font-family="JSSerif', 'font-family="JSSerif'));
+      const im = await svgImg(sealSVG(h.seal, got ? '#A8322A' : '#CFCCC1', 'c' + i));
       if (im) { g.save(); g.translate(x, y + 80); g.rotate(got ? (i % 2 ? .08 : -.1) : 0); g.globalAlpha = got ? .95 : .7; g.drawImage(im, -78, -78, 156, 156); g.restore(); }
-      g.globalAlpha = 1; g.fillStyle = got ? '#2B251F' : '#8F877C'; g.font = '700 26px ' + serif; g.fillText(h.name.length > 7 ? h.name.slice(0, 6) + '…' : h.name, x, y + 196);
+      g.globalAlpha = 1; g.fillStyle = got ? '#2B251F' : '#8F877C'; g.font = '700 26px ' + serif; g.fillText(h.name, x, y + 196);
     }
     const n = state.stamps.length;
     g.fillStyle = '#2B251F'; g.font = '700 44px ' + serif; g.fillText(n === 8 ? '八厅印章已集齐' : '已集 ' + n + ' / 8 枚展厅印章', W / 2, 1290);
     const mz = await svgImg(mascotSVG('wave'));
     if (mz) g.drawImage(mz, 96, 1330, 180, 190);
     g.textAlign = 'left'; g.fillStyle = '#6C645B'; g.font = '30px ' + sans;
-    g.fillText('板啾啾陪你逛完了稷山板枣数字馆', 300, 1400);
+    g.fillText('板啾啾陪你逛完了稷山板枣数字展馆', 300, 1400);
     const d = new Date(); g.fillText(d.getFullYear() + ' 年 ' + (d.getMonth() + 1) + ' 月 ' + d.getDate() + ' 日', 300, 1450);
     g.font = '26px ' + sans; g.fillStyle = '#8F877C'; g.fillText(D.org, 300, 1500);
     try {
@@ -677,7 +684,7 @@
     const h = HALLS[hi];
     if (h) mountStamp(app, h);
     voiceBtnSync();
-    document.title = (h ? '第' + h.no + '展厅 ' + h.name : id === 'prelude' ? '序厅' : id === 'map' ? '展厅导览' : id === 'passport' ? '观展护照' : '稷山板枣数字馆') + (id === 'cover' ? '' : ' · 稷山板枣数字馆');
+    document.title = (h ? '第' + h.no + '展厅 ' + h.name : id === 'prelude' ? '序厅' : id === 'map' ? '展厅导览' : id === 'passport' ? '观展护照' : '稷山板枣数字馆') + (state.page === 'cover' ? '' : ' · 稷山板枣数字馆');
     const g = $('#guide'); g.classList.toggle('hide', state.page === 'cover');
     if (state.page !== prev) {
       const k = pageNarr();
