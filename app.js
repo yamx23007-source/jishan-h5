@@ -290,7 +290,7 @@
       html: bar('展厅导览', ['prelude', '序厅']) + '<div class="page">' +
         '<div class="map-head wrap"><h1>展厅导览</h1><p>八个展厅依申报书的章节排列。看完一个展厅，在厅尾盖一枚章。</p></div>' +
         '<div class="links wrap"><a href="#prelude"><b>序厅</b><span>遗产概要 · 范围 · 特点</span></a><a href="#passport"><b>观展护照</b><span>已集章 ' + n + ' / 8</span></a></div>' +
-        '<a class="arlink wrap" href="ar.html"><span class="ic">' + I.cube + '</span><span class="tx"><b>AR 体验</b><small>扫描申报书里的三张图，图上立起遗产地沙盘、板枣糖丝和环割剖面</small></span><span class="chev">' + I.r + '</span></a>' +
+        '<a class="arlink wrap" href="ar.html"><span class="ic">' + I.cube + '</span><span class="tx"><b>AR 体验</b><small>扫描申报书里的三张图，图上立起遗产地沙盘、板枣糖丝和开甲演示</small></span><span class="chev">' + I.r + '</span></a>' +
         '<div class="tiles wrap">' + tiles + '</div>' +
         '<div class="foot">' + esc(D.org) + '编制<br>资料来源：' + esc(D.source) + '及其附件<br>标注「' + SHOT + '」的影像为本项目 2026 年 10 月采集素材<br>讲解音频为语音合成</div>' +
         '</div>'
@@ -503,7 +503,7 @@
     const layers = '<div class="layers">' + A.layers.map((l) => '<div class="ly"><b>' + esc(l.k) + '</b><p>' + esc(l.d) + '</p></div>').join('') + '</div>';
     const agro = para(A.text) + layers + '<h3 class="sub">常见的林下作物</h3>' + tags(A.crops) + '<h3 class="sub">放养家禽</h3>' + tags(A.birds);
     const graft = para(G.text) + '<div class="ringbox">' + ringSVG() + '</div>' + para(G.ring) + '<div class="grid2" style="margin-top:14px">' + G.imgs.map((x) => fig(x[0], { g: 'ring', cap: x[1] })).join('') + '</div>' +
-      '<div class="row"><a class="pill" href="ar.html#ring">' + I.cube + 'AR 看环割剖面</a></div>';
+      '<div class="row"><a class="pill" href="ar.html#ring">' + I.cube + 'AR 开甲七步演示</a></div>';
     const stepper = '<div class="stepper"><div class="dots">' + S.map((p, i) => '<button data-i="' + i + '"><i>' + (i + 1) + '</i>' + esc(p.name) + '</button>').join('') + '</div><div class="stepcard"></div></div>';
     const C = H.calendar;
     const months = '<div class="months" aria-hidden="true">' + [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => '<span data-m="' + m + '">' + m + '</span>').join('') + '</div>';

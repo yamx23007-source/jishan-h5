@@ -127,6 +127,7 @@ a.pill { text-decoration: none; }
   background: rgba(248, 248, 244, .97); border-top: 1px solid var(--line); border-radius: 12px 12px 0 0; box-shadow: 0 -4px 24px rgba(30, 25, 15, .14);
   padding: 14px var(--gr) calc(14px + var(--bot)) var(--gl); font-size: 14px; line-height: 1.75; }
 .hud .sheet { max-height: 62vh; overflow: auto; overscroll-behavior: contain; }
+.hud .card { max-height: 56vh; overflow: auto; overscroll-behavior: contain; }
 @media (min-width: 760px) and (min-height: 480px) and (min-aspect-ratio: 1/1) {
   .hud .card, .hud .sheet { left: 16px; transform: none; bottom: 16px; width: 360px; border: 1px solid var(--line); border-radius: 8px; padding: 14px 18px; }
 }
@@ -145,6 +146,22 @@ a.pill { text-decoration: none; }
 .card .st span { font-size: 11.5px; color: var(--ink2); }
 .card .ca { margin-top: 10px; display: flex; gap: 8px; }
 .card .ca .pill.solid { min-width: 96px; }
+.card .ca.three { display: grid; grid-template-columns: 1fr 1fr 1.4fr; }
+.card .ca.three .pill { min-width: 0; padding-left: 6px; padding-right: 6px; }
+.card .pill[disabled] { opacity: .35; }
+.card .st div.hi b { color: var(--zao); }
+.card .st div:not(.hi) b { color: var(--ink); }
+.card .sti { margin-top: 4px; font-family: var(--serif); font-size: 16px; color: var(--ink); }
+.card .vs { margin-top: 6px; padding: 6px 10px; border-left: 3px solid var(--loess); background: rgba(160, 133, 92, .1); font-family: var(--serif); font-size: 14.5px; line-height: 1.7; color: var(--ink); }
+.card .vs small { display: block; font-family: var(--sans); font-size: 11px; color: var(--loess); letter-spacing: .05em; }
+.card .dots { display: flex; gap: 5px; margin-top: 8px; }
+.card .dots i { flex: 1; height: 3px; background: var(--line); border-radius: 2px; }
+.card .dots i.on { background: var(--leaf); }
+.card .steps3 { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 13px; color: var(--ink3); }
+.card .steps3 i { flex: 1; height: 1px; background: var(--line); }
+.card .steps3 span { padding: 1px 9px; border: 1px solid var(--line); border-radius: 3px; }
+.card .steps3 span.done { color: var(--leaf); border-color: var(--leaf); }
+.card .steps3 span.on { background: var(--ink); border-color: var(--ink); color: #fff; }
 .card .seg { display: grid; grid-template-columns: 1fr 1fr; margin-top: 10px; border: 1px solid var(--ink); border-radius: 4px; overflow: hidden; }
 .card .seg button { padding: 7px 0; text-align: center; font-size: 14px; }
 .card .seg button[aria-selected="true"] { background: var(--ink); color: #fff; }
