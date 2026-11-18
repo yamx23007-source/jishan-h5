@@ -30,6 +30,7 @@
 
   /* ---------- 图标 ---------- */
   const I = {
+    cube: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg>',
     back: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>',
     snd: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6M18.2 6.5a8 8 0 0 1 0 11"/></svg>',
     mute: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></svg>',
@@ -258,7 +259,8 @@
     const P = D.prelude, Z = P.zone;
     const facts = recTable(P.facts) + srcNote(P.factsSrc) +
       '<div class="doc">' + ph(P.cover, { r: '', g: 'doc', cap: '申报书封面' }) + '<div><b>申报书</b><p>' + esc(D.source.replace(/（.*）/, '')) + '</p><p class="small">正文五章：遗产地概况、遗产特征、遗产功能与重要性评估、问题挑战与机遇、保护与发展措施；另附图件与照片、技术规程、四季歌、修剪歌、物候历、管理办法和科研文献目录。</p></div></div>';
-    const zone = mapBox({ img: Z.img, t: Z.t, legend: Z.legend }, 'zone') + '<p class="txt" style="margin-top:12px">' + esc(Z.note) + '</p>' + tags(Z.villages, 'vill');
+    const zone = mapBox({ img: Z.img, t: Z.t, legend: Z.legend }, 'zone') + '<p class="txt" style="margin-top:12px">' + esc(Z.note) + '</p>' + tags(Z.villages, 'vill') +
+      '<div class="row"><a class="pill" href="ar.html#sandbox">' + I.cube + 'AR 沙盘：立起三个分区</a></div>';
     const pts = '<ol class="feats">' + P.points.map((p) => {
       const h = hallById(p.to);
       return '<li><button data-go="' + p.to + '"><span class="n">' + '一二三四五'.charAt(P.points.indexOf(p)) + '</span><b>' + esc(p.t) + '</b><p>' + esc(p.d) + '</p><span class="to">第' + h.no + '展厅 · ' + esc(h.name) + I.r + '</span></button></li>';
@@ -288,6 +290,7 @@
       html: bar('展厅导览', ['prelude', '序厅']) + '<div class="page">' +
         '<div class="map-head wrap"><h1>展厅导览</h1><p>八个展厅依申报书的章节排列。看完一个展厅，在厅尾盖一枚章。</p></div>' +
         '<div class="links wrap"><a href="#prelude"><b>序厅</b><span>遗产概要 · 范围 · 特点</span></a><a href="#passport"><b>观展护照</b><span>已集章 ' + n + ' / 8</span></a></div>' +
+        '<a class="arlink wrap" href="ar.html"><span class="ic">' + I.cube + '</span><span class="tx"><b>AR 体验</b><small>扫描申报书里的三张图，图上立起遗产地沙盘、板枣糖丝和环割剖面</small></span><span class="chev">' + I.r + '</span></a>' +
         '<div class="tiles wrap">' + tiles + '</div>' +
         '<div class="foot">' + esc(D.org) + '编制<br>资料来源：' + esc(D.source) + '及其附件<br>标注「' + SHOT + '」的影像为本项目 2026 年 10 月采集素材<br>讲解音频为语音合成</div>' +
         '</div>'
@@ -389,7 +392,8 @@
       H.types.map((t, i) => '<div class="grid2" data-pane style="margin-top:14px"' + (i ? ' hidden' : '') + '>' + t.imgs.map((s, j) => ph(s, { g: 'type', cap: t.t + '（' + (j + 1) + '）' })).join('') + '</div>').join('') + '</div>' + srcNote(H.typesSrc);
     const Q = H.quality;
     const quality = quote(Q.rhyme, '申报书引用的民间说法', 'rhyme') + recTable(Q.rows) +
-      '<div class="sugar"><div class="sgw">' + sugarSVG() + '</div><div class="sgc"><button class="pill solid" data-pull>拉糖丝</button><span>制干后掰开，能拉出 25—30 厘米长的金黄色糖丝。</span></div></div>' + srcNote(Q.src);
+      '<div class="sugar"><div class="sgw">' + sugarSVG() + '</div><div class="sgc"><button class="pill solid" data-pull>拉糖丝</button><span>制干后掰开，能拉出 25—30 厘米长的金黄色糖丝。</span></div></div>' +
+      '<div class="row"><a class="pill" href="ar.html#zao">' + I.cube + 'AR 掰开一颗板枣</a></div>' + srcNote(Q.src);
     const P = H.products;
     const prod = para(P.text) + tags(P.chips) + '<div style="margin-top:14px">' + fig(P.img, { g: 'h3p', cap: P.cap }) + '</div>';
     const land = fig('SB-06', { g: 'h3l', cap: '枣麦套种间作复合生产（申报书图 2-5）' }) + '<p class="txt" style="margin-top:12px">' + esc(H.land.text) + '</p>' + '<h3 class="sub">合理的水肥利用</h3>' + para(H.land.water);
@@ -498,7 +502,8 @@
     const H = D.hall6, A = H.agro, G = H.graft, S = H.steps;
     const layers = '<div class="layers">' + A.layers.map((l) => '<div class="ly"><b>' + esc(l.k) + '</b><p>' + esc(l.d) + '</p></div>').join('') + '</div>';
     const agro = para(A.text) + layers + '<h3 class="sub">常见的林下作物</h3>' + tags(A.crops) + '<h3 class="sub">放养家禽</h3>' + tags(A.birds);
-    const graft = para(G.text) + '<div class="ringbox">' + ringSVG() + '</div>' + para(G.ring) + '<div class="grid2" style="margin-top:14px">' + G.imgs.map((x) => fig(x[0], { g: 'ring', cap: x[1] })).join('') + '</div>';
+    const graft = para(G.text) + '<div class="ringbox">' + ringSVG() + '</div>' + para(G.ring) + '<div class="grid2" style="margin-top:14px">' + G.imgs.map((x) => fig(x[0], { g: 'ring', cap: x[1] })).join('') + '</div>' +
+      '<div class="row"><a class="pill" href="ar.html#ring">' + I.cube + 'AR 看环割剖面</a></div>';
     const stepper = '<div class="stepper"><div class="dots">' + S.map((p, i) => '<button data-i="' + i + '"><i>' + (i + 1) + '</i>' + esc(p.name) + '</button>').join('') + '</div><div class="stepcard"></div></div>';
     const C = H.calendar;
     const months = '<div class="months" aria-hidden="true">' + [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => '<span data-m="' + m + '">' + m + '</span>').join('') + '</div>';
